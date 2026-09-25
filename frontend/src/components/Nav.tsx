@@ -8,6 +8,7 @@ import { short } from "@/lib/format";
 const links = [
   { href: "/", label: "Market" },
   { href: "/sell", label: "Sell" },
+  { href: "/bids", label: "Bids" },
   { href: "/trades", label: "Trades" },
   { href: "/portfolio", label: "Portfolio" },
 ];
