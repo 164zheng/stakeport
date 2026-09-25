@@ -1,0 +1,21 @@
+# env
+.env
+.env.*
+!.env.example
+
+# foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/31337/
+
+# node
+node_modules/
+.next/
+dist/
+
+# beacon state dumps are large
+proof-generator/data/
+
+# misc
+.DS_Store
+.gstack/
