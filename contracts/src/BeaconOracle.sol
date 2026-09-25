@@ -23,13 +23,13 @@ contract BeaconOracle is IBeaconOracle {
         return p.stateRoot;
     }
 
-    function verifyValidator(bytes32 stateRoot, BeaconProofs.ValidatorProof calldata p) external view {
+    function verifyValidator(bytes32 stateRoot, BeaconProofs.ValidatorProof calldata p) external pure {
         BeaconProofs.verifyValidator(stateRoot, p);
     }
 
     function verifyBalance(bytes32 stateRoot, BeaconProofs.BalanceProof calldata p)
         external
-        view
+        pure
         returns (uint64)
     {
         return BeaconProofs.verifyBalance(stateRoot, p);
@@ -38,11 +38,11 @@ contract BeaconOracle is IBeaconOracle {
     function verifyPendingConsolidation(
         bytes32 stateRoot,
         BeaconProofs.PendingConsolidationProof calldata p
-    ) external view {
+    ) external pure {
         BeaconProofs.verifyPendingConsolidation(stateRoot, p);
     }
 
-    function verifySlot(bytes32 stateRoot, BeaconProofs.SlotProof calldata p) external view {
+    function verifySlot(bytes32 stateRoot, BeaconProofs.SlotProof calldata p) external pure {
         BeaconProofs.verifySlot(stateRoot, p);
     }
 }

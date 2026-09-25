@@ -71,21 +71,21 @@ library BeaconProofs {
     // Verification
     // ---------------------------------------------------------------------------------------------
 
-    function verifyStateRoot(bytes32 blockRoot, StateRootProof calldata p) internal view {
+    function verifyStateRoot(bytes32 blockRoot, StateRootProof calldata p) internal pure {
         _verify(p.stateRoot, p.branch, STATE_ROOT_GINDEX, blockRoot);
     }
 
-    function verifySlot(bytes32 stateRoot, SlotProof calldata p) internal view {
+    function verifySlot(bytes32 stateRoot, SlotProof calldata p) internal pure {
         _verify(toLittleEndian(p.slot), p.branch, SLOT_GINDEX, stateRoot);
     }
 
-    function verifyValidator(bytes32 stateRoot, ValidatorProof calldata p) internal view {
+    function verifyValidator(bytes32 stateRoot, ValidatorProof calldata p) internal pure {
         if (p.index >= VALIDATOR_REGISTRY_LIMIT) revert IndexOutOfRange();
         _verify(validatorRoot(p.validator), p.branch, VALIDATORS_BASE_GINDEX | p.index, stateRoot);
     }
 
     /// @return balance the proven balance in gwei
-    function verifyBalance(bytes32 stateRoot, BalanceProof calldata p) internal view returns (uint64 balance) {
+    function verifyBalance(bytes32 stateRoot, BalanceProof calldata p) internal pure returns (uint64 balance) {
         if (p.index >= VALIDATOR_REGISTRY_LIMIT) revert IndexOutOfRange();
         _verify(p.chunk, p.branch, BALANCES_BASE_GINDEX | (p.index >> 2), stateRoot);
         return fromLittleEndian(p.chunk, uint256(p.index & 3));
@@ -93,7 +93,7 @@ library BeaconProofs {
 
     function verifyPendingConsolidation(bytes32 stateRoot, PendingConsolidationProof calldata p)
         internal
-        view
+        pure
     {
         if (p.queueIndex >= PENDING_CONSOLIDATIONS_LIMIT) revert IndexOutOfRange();
         bytes32 leaf = sha256(abi.encodePacked(toLittleEndian(p.sourceIndex), toLittleEndian(p.targetIndex)));
@@ -104,7 +104,7 @@ library BeaconProofs {
     // SSZ helpers
     // ---------------------------------------------------------------------------------------------
 
-    function validatorRoot(Validator calldata v) internal view returns (bytes32) {
+    function validatorRoot(Validator calldata v) internal pure returns (bytes32) {
         bytes32[8] memory leaves = [
             pubkeyRoot(v.pubkey),
             v.withdrawalCredentials,
@@ -126,7 +126,7 @@ library BeaconProofs {
         );
     }
 
-    function pubkeyRoot(bytes calldata pubkey) internal view returns (bytes32) {
+    function pubkeyRoot(bytes calldata pubkey) internal pure returns (bytes32) {
         if (pubkey.length != 48) revert InvalidPubkeyLength();
         return sha256(abi.encodePacked(pubkey, bytes16(0)));
     }
@@ -149,7 +149,7 @@ library BeaconProofs {
 
     function _verify(bytes32 leaf, bytes32[] calldata branch, uint256 gindex, bytes32 root)
         private
-        view
+        pure
     {
         uint256 depth;
         for (uint256 g = gindex; g > 1; g >>= 1) ++depth;
