@@ -8,6 +8,7 @@ evm_version = "prague"
 optimizer = true
 optimizer_runs = 200
 via_ir = false
+fs_permissions = [{ access = "read", path = "./test/fixtures" }]
 
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
