@@ -10,6 +10,7 @@ import { getDeployment, type Deployment } from "@/lib/config";
 import { gweiToEth, pct, short } from "@/lib/format";
 import { enableDelegation, isDelegated, listOrder, type StakeOrder } from "@/lib/market";
 import { usePersona } from "@/lib/persona";
+import { stakeReference } from "@/lib/uniswap";
 
 export default function SellPage() {
   const { info } = usePersona();
@@ -25,6 +26,7 @@ export default function SellPage() {
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState<string>();
   const [listed, setListed] = useState<string>();
+  const [reference, setReference] = useState<{ stakedEthPrice: bigint; wstEthPrice: bigint }>();
 
   const refresh = useCallback(async () => {
     if (!seller) return;
@@ -32,6 +34,7 @@ export default function SellPage() {
     setValidators(vs);
     setDelegated(del);
     setDeployment(d);
+    setReference(await stakeReference());
     setSelected((s) => s ?? vs.find((v) => v.status === "active")?.index);
   }, [seller]);
 
@@ -199,6 +202,21 @@ export default function SellPage() {
                 <p className="col-span-2 text-xs text-muted">
                   Price = stake × Uniswap wstETH/WETH TWAP ÷ stEthPerToken × (1 − discount), evaluated at fill time.
                 </p>
+                {reference && (
+                  <div className="col-span-2 rounded-xl bg-bg px-3 py-2 text-xs">
+                    <div>
+                      wstETH TWAP (30 min): <span className="font-semibold">{(Number(reference.wstEthPrice) / 1e18).toFixed(5)} WETH</span>
+                    </div>
+                    <div>
+                      Staked ETH reference: <span className="font-semibold">{(Number(reference.stakedEthPrice) / 1e18).toFixed(5)} WETH</span>
+                    </div>
+                    {amountEth > 0 && (
+                      <div className="text-good">
+                        ≈ {((amountEth * Number(reference.stakedEthPrice)) / 1e18 * (1 - Number(bps) / 10_000)).toFixed(4)} WETH for this validator now
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             <Button className="mt-5 w-full" onClick={onList} loading={busy === "list"} disabled={!v || !delegated}>

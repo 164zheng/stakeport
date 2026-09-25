@@ -5,11 +5,12 @@ import { useEffect, useState } from "react";
 import { Badge, Card, ErrorBox, Mono } from "@/components/ui";
 import { api, type ValidatorInfo } from "@/lib/api";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
-import { listings, type Listing } from "@/lib/market";
+import { listings, quote, type Listing } from "@/lib/market";
 
 export default function MarketPage() {
   const [items, setItems] = useState<Listing[]>();
   const [validators, setValidators] = useState<Record<number, ValidatorInfo>>({});
+  const [quotes, setQuotes] = useState<Record<string, bigint>>({});
   const [error, setError] = useState<string>();
 
   useEffect(() => {
@@ -19,7 +20,15 @@ export default function MarketPage() {
         const idx = [...new Set(ls.map((l) => Number(l.order.sourceIndex)))];
         if (idx.length) {
           const vs = await api.validators({ indices: idx });
-          setValidators(Object.fromEntries(vs.map((v) => [v.index, v])));
+          const byIndex = Object.fromEntries(vs.map((v) => [v.index, v]));
+          setValidators(byIndex);
+          // LST-relative listings are priced live from the Uniswap TWAP
+          const q: Record<string, bigint> = {};
+          for (const l of ls.filter((x) => x.order.priceMode === 1 && x.state === "open")) {
+            const v = byIndex[Number(l.order.sourceIndex)];
+            if (v) q[l.hash] = await quote(l.order, BigInt(v.effectiveBalanceGwei)).catch(() => 0n);
+          }
+          setQuotes(q);
         }
       })
       .catch((e) => setError(e.message));
@@ -69,7 +78,8 @@ export default function MarketPage() {
             const v = validators[Number(l.order.sourceIndex)];
             const amount = v ? BigInt(v.effectiveBalanceGwei) * 10n ** 9n : 0n;
             const fixed = l.order.priceMode === 0;
-            const discount = fixed && amount > 0n ? 1 - Number(l.order.price) / Number(amount) : undefined;
+            const livePrice = fixed ? l.order.price : quotes[l.hash];
+            const discount = livePrice && amount > 0n ? 1 - Number(livePrice) / Number(amount) : undefined;
             return (
               <Card key={l.hash} className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
@@ -87,10 +97,12 @@ export default function MarketPage() {
                   <div>
                     <div className="text-xs text-muted">Price</div>
                     <div className="text-xl font-semibold">
-                      {fixed ? `${eth(l.order.price)} WETH` : `LST −${Number(l.order.price) / 100}%`}
+                      {livePrice ? `${eth(livePrice)} WETH` : `LST −${Number(l.order.price) / 100}%`}
                     </div>
                     {discount !== undefined && <div className="text-xs text-good">{pct(discount)} discount</div>}
-                    {!fixed && <div className="text-xs text-muted">priced off Uniswap wstETH TWAP</div>}
+                    {!fixed && (
+                      <div className="text-xs text-muted">LST market −{Number(l.order.price) / 100}% · Uniswap TWAP</div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center justify-between">

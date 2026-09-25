@@ -8,6 +8,7 @@ import { errorMessage } from "@/lib/chain";
 import { getDeployment, type Deployment } from "@/lib/config";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
 import { fillWithWeth, listings, quote, type Listing } from "@/lib/market";
+import { buyWithUsdc, stakeReference, usdcQuoteForListing } from "@/lib/uniswap";
 import { usePersona } from "@/lib/persona";
 
 type PayWith = "weth" | "usdc";
@@ -25,6 +26,8 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
   const [payment, setPayment] = useState<bigint>();
   const [payWith, setPayWith] = useState<PayWith>("weth");
   const [deployment, setDeployment] = useState<Deployment>();
+  const [usdcIn, setUsdcIn] = useState<bigint>();
+  const [reference, setReference] = useState<bigint>();
   const [steps, setSteps] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -46,6 +49,12 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
       setTargets(eligible);
       setTarget(eligible.find((t) => t.effectiveBalanceGwei + src.effectiveBalanceGwei <= 2048e9)?.index);
       setPayment(await quote(l.order, BigInt(src.effectiveBalanceGwei)));
+      const ref = await stakeReference();
+      setReference(ref?.stakedEthPrice);
+      if (d.hook) {
+        const q = await usdcQuoteForListing(l, BigInt(src.effectiveBalanceGwei));
+        setUsdcIn(q.usdcIn);
+      }
     })().catch((e) => setError(errorMessage(e)));
   }, [buyer, hash]);
 
@@ -55,7 +64,11 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
     setError(undefined);
     setSteps([]);
     try {
-      const id = await fillWithWeth(listing, buyer, target, (s) => setSteps((x) => [...x, s]));
+      const onStep = (s: string) => setSteps((x) => [...x, s]);
+      const id =
+        payWith === "usdc"
+          ? (await buyWithUsdc(listing, buyer, target, onStep)).tradeId
+          : await fillWithWeth(listing, buyer, target, onStep);
       router.push(`/trades/${id}`);
     } catch (e) {
       setError(errorMessage(e));
@@ -87,6 +100,11 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
           <div className="text-2xl font-semibold">{payment !== undefined ? eth(payment) : "…"} WETH</div>
           {payment !== undefined && amountWei > 0n && (
             <div className="text-xs text-good">{pct(1 - Number(payment) / Number(amountWei))} below face value</div>
+          )}
+          {reference !== undefined && (
+            <div className="text-xs text-muted">
+              Uniswap LST market: {pct(1 - Number(reference) / 1e18, 3)} discount
+            </div>
           )}
         </div>
         <div>
@@ -136,7 +154,13 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
             className={`rounded-xl border px-4 py-3 text-left text-sm disabled:opacity-40 ${payWith === "usdc" ? "border-accent" : "border-line"}`}
           >
             <div className="font-semibold">USDC via Uniswap v4</div>
-            <div className="text-xs text-muted">{deployment?.hook ? "one swap buys the stake" : "hook not deployed"}</div>
+            <div className="text-xs text-muted">
+              {deployment?.hook
+                ? usdcIn !== undefined
+                  ? `≈ ${(Number(usdcIn) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 0 })} USDC in one swap (0.5% slippage, excess ETH refunded)`
+                  : "quoting…"
+                : "hook not deployed"}
+            </div>
           </button>
         </div>
       </Card>
