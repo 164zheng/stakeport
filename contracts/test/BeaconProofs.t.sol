@@ -7,7 +7,7 @@ import {BeaconProofs} from "../src/libraries/BeaconProofs.sol";
 import {Fixture} from "./utils/Fixture.sol";
 
 contract BeaconProofsHarness {
-    function verifyStateRoot(bytes32 blockRoot, BeaconProofs.StateRootProof calldata p) external view {
+    function verifyStateRoot(bytes32 blockRoot, BeaconProofs.StateRootProof calldata p) external pure {
         BeaconProofs.verifyStateRoot(blockRoot, p);
     }
 
