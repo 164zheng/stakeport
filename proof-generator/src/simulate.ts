@@ -14,6 +14,9 @@ export const SECONDS_PER_SLOT = 12;
 export const MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 256;
 export const MAX_SEED_LOOKAHEAD = 4;
 export const FAR_FUTURE = Infinity;
+export const EFFECTIVE_BALANCE_INCREMENT = 1_000_000_000;
+export const MIN_ACTIVATION_BALANCE = 32_000_000_000;
+export const MAX_EFFECTIVE_BALANCE_ELECTRA = 2_048_000_000_000;
 
 const hex = (b: Uint8Array) => `0x${Buffer.from(b).toString("hex")}`;
 
@@ -68,6 +71,13 @@ export class BeaconSim {
     const moved = Math.min(this.state.balances.get(sourceIndex), source.effectiveBalance);
     this.state.balances.set(sourceIndex, this.state.balances.get(sourceIndex) - moved);
     this.state.balances.set(targetIndex, this.state.balances.get(targetIndex) + moved);
+    // process_effective_balance_updates at the epoch boundary (hysteresis ignored)
+    for (const i of [sourceIndex, targetIndex]) {
+      const v = this.state.validators.get(i);
+      const cap = v.withdrawalCredentials[0] === 2 ? MAX_EFFECTIVE_BALANCE_ELECTRA : MIN_ACTIVATION_BALANCE;
+      const bal = this.state.balances.get(i);
+      v.effectiveBalance = Math.min(bal - (bal % EFFECTIVE_BALANCE_INCREMENT), cap);
+    }
     // the queue entry is removed by the CL; keeping it does not affect any proof we use
     return { movedGwei: moved };
   }
