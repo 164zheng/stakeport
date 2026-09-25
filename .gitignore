@@ -19,3 +19,8 @@ proof-generator/data/
 # misc
 .DS_Store
 .gstack/
+
+# local deployments / broadcasts
+contracts/broadcast/
+deployments/*.json
+!deployments/.gitkeep
