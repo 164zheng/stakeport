@@ -24,3 +24,5 @@ proof-generator/data/
 contracts/broadcast/
 deployments/*.json
 !deployments/.gitkeep
+frontend/public/deployment.json
+.gstack/
