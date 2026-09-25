@@ -63,3 +63,23 @@ Requirements to satisfy:
 - Commit often; large single commits can be disqualified.
 - Document AI tool usage (which files / parts were AI-assisted) in the README.
 - Demo video (optional): 2-4 min, >=720p, no speed-up, no AI voiceover.
+
+## Environment findings (2026-09-26)
+
+- Mainnet is on **Fulu** (BeaconState has 38 fields; Gloas not scheduled). Use `ssz.fulu.BeaconState`.
+- `@lodestar/types@1.48.0` breaks with `@chainsafe/ssz@1.8.0` ("List limit must be a positive
+  integer"). Pin `@chainsafe/ssz` to `1.7.0` via pnpm overrides.
+- Full state: ~337 MB SSZ, ~20 s download (Alchemy beacon debug endpoint works), ~2 s deserialize,
+  ~30 s hashTreeRoot, ~3 GB RSS. Computed root matches the header `state_root`.
+- ~8.2k pending consolidations on mainnet: real delivery would take a long time; the demo replays
+  checkpoint 2.
+- EIP-7702 on the anvil fork works both with a signed authorization (`cast send --auth`) and with
+  `anvil_setCode(eoa, 0xef0100 || delegate)` on a real mainnet withdrawal address. In both cases
+  the consolidation predeploy logs the EOA as the source address.
+- **Do not use anvil's default dev accounts on a mainnet fork**: they are 7702-delegated to a
+  sweeper contract on mainnet. Generate fresh keys and fund them with `anvil_setBalance`.
+- EIP-4788 on the fork returns real roots for blocks up to the fork block. Later roots can be
+  injected into the ring buffer with `anvil_setStorageAt` (replaying real mainnet roots).
+- Uniswap v4 PoolManager is live on the fork (`0x000000000004444c5dc75cB358380D2e3dE08A90`).
+- Aqua / SwapVM use source-available Degensoft licenses (fine for the hackathon; check before any
+  commercial use).
