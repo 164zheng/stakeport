@@ -6,6 +6,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {BeaconOracle} from "../src/BeaconOracle.sol";
 import {NativeStakeMarket} from "../src/NativeStakeMarket.sol";
+import {AquaStakeBidApp} from "../src/aqua/AquaStakeBidApp.sol";
+import {IAqua} from "../src/aqua/IAqua.sol";
 import {StakePortHook} from "../src/uniswap/StakePortHook.sol";
 import {StakePortSwapRouter} from "../src/uniswap/StakePortSwapRouter.sol";
 import {IUniswapV3PoolOracle, IWstETH, UniswapStakePriceOracle} from "../src/uniswap/UniswapStakePriceOracle.sol";
@@ -17,6 +19,8 @@ contract Deploy is Script {
     address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     uint256 constant MAINNET_GENESIS = 1606824023;
+    /// Official 1inch Aqua registry (same address on every supported chain)
+    address constant AQUA = 0x1111113CCf1426A8E30e2bfF5E005d929bF6a90a;
 
     function run() external {
         // Demo defaults: fill proofs come from one pinned beacon state and the demo fast-forwards
@@ -39,6 +43,7 @@ contract Deploy is Script {
         StakePortHook hook = new StakePortHook{salt: salt}(U.POOL_MANAGER, market, U.liquidityKey());
         U.POOL_MANAGER.initialize(U.stakeKey(address(hook)), TickMath.getSqrtPriceAtTick(0));
         StakePortSwapRouter router = new StakePortSwapRouter(U.POOL_MANAGER);
+        AquaStakeBidApp aquaBidApp = new AquaStakeBidApp(IAqua(AQUA), market);
         vm.stopBroadcast();
 
         string memory obj = "deployment";
@@ -50,6 +55,8 @@ contract Deploy is Script {
         vm.serializeAddress(obj, "poolManager", address(U.POOL_MANAGER));
         vm.serializeAddress(obj, "hook", address(hook));
         vm.serializeAddress(obj, "router", address(router));
+        vm.serializeAddress(obj, "aqua", AQUA);
+        vm.serializeAddress(obj, "aquaBidApp", address(aquaBidApp));
         vm.serializeUint(obj, "stakePoolFee", U.stakeKey(address(hook)).fee);
         vm.serializeInt(obj, "stakePoolTickSpacing", U.stakeKey(address(hook)).tickSpacing);
         vm.serializeUint(obj, "liquidityPoolFee", U.liquidityKey().fee);
