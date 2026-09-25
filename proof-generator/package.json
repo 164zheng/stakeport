@@ -5,7 +5,7 @@
   "scripts": {
     "gindices": "node src/gindices.ts",
     "fixtures": "node --max-old-space-size=12000 src/cli.ts",
-    "test": "node --test test/"
+    "test": "node --test \"test/**/*.test.ts\""
   },
   "pnpm": {
     "overrides": {
