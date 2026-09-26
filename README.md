@@ -271,6 +271,10 @@ delegations).
 - The demo deployment uses a 30-day fill proof age (the demo fast-forwards time); production would use ~1 hour.
 - A 0x02 source with pending partial withdrawals is rejected by the consensus layer; the buyer is refunded via
   `proveNotAccepted` / `refundExpired`.
+- Checkpoint 1 must be relayed within `acceptWindow` (≤ 2 days, while acceptance is still provable through
+  EIP-4788); after that the buyer can reclaim the payment. Anyone can relay it; the relayer does so automatically.
+- "Not accepted" refunds wait 6 hours after the fill, until the request cannot still be queued in the EIP-7251
+  predeploy.
 - The delivery proof relies on the source being processed once withdrawable (pending consolidations are
   processed in queue order before the withdrawal sweep).
 - Validator keys stay with the seller until the consolidation is processed; slashing in that window refunds the
