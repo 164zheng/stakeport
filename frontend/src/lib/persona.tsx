@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Address } from "viem";
 import { api, type ServiceInfo } from "./api";
-import { CHAIN_ID } from "./config";
+import { CHAIN_ID, IS_FORK } from "./config";
 import { connectWallet, disconnectWallet } from "./wallet";
 
 export type Role = "seller" | "buyer";
@@ -64,7 +64,9 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
     } catch {}
   };
 
-  const seller = wallet ?? info?.personas?.seller.address;
+  // On the demo fork the connected wallet plays the buyer (the seller is a real validator operator we can
+  // only impersonate); on a real network it plays both roles.
+  const seller = IS_FORK ? info?.personas?.seller.address : (wallet ?? info?.personas?.seller.address);
   const buyer = wallet ?? info?.personas?.buyer.address;
 
   return (

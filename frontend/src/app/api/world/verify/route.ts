@@ -67,7 +67,12 @@ export async function POST(request: Request) {
   };
   const signer = privateKeyToAccount(c.attesterKey!);
   const signature = await signer.signTypedData({
-    domain: { name: "StakePort WorldIdEligibility", version: "1", chainId: 1, verifyingContract: worldEligibility },
+    domain: {
+      name: "StakePort WorldIdEligibility",
+      version: "1",
+      chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 1),
+      verifyingContract: worldEligibility,
+    },
     types: {
       Attestation: [
         { name: "account", type: "address" },

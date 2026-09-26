@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePersona } from "@/lib/persona";
 import { short } from "@/lib/format";
+import { parseEther } from "viem";
+import { testClient } from "@/lib/chain";
+import { IS_FORK } from "@/lib/config";
 
 const links = [
   { href: "/demo", label: "Demo" },
@@ -50,9 +53,20 @@ export function Nav() {
           </div>
           <span className="font-mono text-xs text-muted">{address ? short(address, 4) : error ? "offline" : "…"}</span>
           {wallet ? (
-            <button onClick={disconnect} className="rounded-lg border border-line px-2 py-1 text-xs text-muted hover:text-fg">
-              Disconnect
-            </button>
+            <>
+              {IS_FORK && (
+                <button
+                  onClick={() => testClient.setBalance({ address: wallet, value: parseEther("100") }).catch(() => {})}
+                  title="Fork only: give the connected wallet 100 test ETH"
+                  className="rounded-lg border border-line px-2 py-1 text-xs text-muted hover:text-fg"
+                >
+                  +100 ETH
+                </button>
+              )}
+              <button onClick={disconnect} className="rounded-lg border border-line px-2 py-1 text-xs text-muted hover:text-fg">
+                Disconnect
+              </button>
+            </>
           ) : (
             <button onClick={() => connect().catch(() => {})} className="rounded-lg border border-line px-2 py-1 text-xs text-muted hover:text-fg">
               Connect wallet

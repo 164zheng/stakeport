@@ -13,5 +13,6 @@ else
   FORK_BLOCK=$(jq -r .elBlockNumber contracts/test/fixtures/mainnet.json)
 fi
 echo "forking mainnet at block $FORK_BLOCK ($DEMO_FIXTURE fixture)"
+# CHAIN_ID=31337 lets browser wallets (MetaMask) add the fork as a custom network.
 exec anvil --fork-url "$MAINNET_RPC_URL" --fork-block-number "$FORK_BLOCK" \
-  --auto-impersonate --port "${ANVIL_PORT:-8545}" --silent
+  ${CHAIN_ID:+--chain-id "$CHAIN_ID"} --auto-impersonate --port "${ANVIL_PORT:-8545}" --silent
