@@ -129,7 +129,7 @@ CLI version of the same flow: `cd proof-generator && node scripts/e2e.ts` (with 
 
 ```bash
 cd contracts && forge test                 # 97 unit tests; fork tests are skipped without MAINNET_RPC_URL
-set -a; . ../.env; set +a; forge test      # + 32 mainnet fork tests (129 total)
+set -a; . ../.env; set +a; forge test      # + 33 mainnet fork tests (130 total)
 cd proof-generator && pnpm test            # gindex parity with Solidity, proof/ABI checks, queue math
 ```
 
@@ -242,6 +242,15 @@ The [Portfolio](frontend/src/app/portfolio/page.tsx) page is a dashboard for nat
 (Chainlink), estimated rewards, receiving capacity across 0x02 validators, validators with fill level and status,
 trades with settlement ETA and discount, and **action items** (relay a checkpoint proof, claim a refund,
 validators near the 2048 ETH cap, idle WETH, listings about to expire). MultiBaas was not used.
+
+## Toward a testnet
+
+[`docs/TESTNET.md`](docs/TESTNET.md) runs StakePort on Hoodi with free infrastructure: proofs come from the public
+Lodestar proof API (no state download, checked against the header and EIP-4788), an
+[indexer](proof-generator/src/indexer.ts) follows events in free-tier-sized `eth_getLogs` chunks, a
+[relayer](proof-generator/src/relayer.ts) settles checkpoints automatically, and the frontend connects a browser
+wallet (the seller's EIP-7702 authorization is signed in-page, since wallets do not yet support arbitrary
+delegations).
 
 ## Security notes and limitations
 
