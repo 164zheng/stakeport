@@ -26,7 +26,8 @@ export function Nav() {
     <header className="sticky top-0 z-10 border-b border-line bg-bg/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent text-ink">◆</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="" width={28} height={28} className="h-7 w-7" />
           StakePort
         </Link>
         <nav className="flex gap-1 text-sm">
