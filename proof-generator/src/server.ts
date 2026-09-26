@@ -6,7 +6,7 @@
 // beacon roots it injects into the fork's EIP-4788 buffer (see simulate.ts).
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { createPublicClient, createTestClient, getAddress, http, numberToHex, pad } from "viem";
+import { createPublicClient, createTestClient, decodeAbiParameters, getAddress, http, numberToHex, pad } from "viem";
 import { mainnet } from "viem/chains";
 import { getHeader, getStateSsz } from "./beacon.ts";
 import { BeaconSim, SECONDS_PER_SLOT } from "./simulate.ts";
@@ -19,6 +19,7 @@ import {
   validatorProof,
 } from "./proofs.ts";
 import {
+  validatorProofAbi,
   encodeBalanceProof,
   encodePendingConsolidationProof,
   encodeStateRootProof,
@@ -28,6 +29,7 @@ import {
 const PORT = Number(process.env.PORT ?? 8788);
 const ANVIL = process.env.ANVIL_RPC_URL ?? "http://127.0.0.1:8545";
 const FIXTURE = new URL("../../contracts/test/fixtures/mainnet.json", import.meta.url).pathname;
+const REPLAY = new URL("../../contracts/test/fixtures/replay.json", import.meta.url).pathname;
 const DATA = new URL("../data/", import.meta.url).pathname;
 
 const BEACON_ROOTS = "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02" as const;
@@ -37,8 +39,15 @@ const anvilPublic = createPublicClient({ chain: mainnet, transport: http(ANVIL) 
 const anvilTest = createTestClient({ chain: mainnet, mode: "anvil", transport: http(ANVIL) });
 
 const fixture = JSON.parse(readFileSync(FIXTURE, "utf8"));
-const baseSlot: number = fixture.beaconSlot;
-const baseTimestamp: number = fixture.elTimestamp;
+// "replay": fork right before a REAL mainnet consolidation (checkpoint 1 served from real data).
+const DEMO = process.env.DEMO_FIXTURE ?? (existsSync(REPLAY) ? "replay" : "mainnet");
+const replay = DEMO === "replay" ? JSON.parse(readFileSync(REPLAY, "utf8")) : undefined;
+const base = replay
+  ? { slot: replay.pre.slot as number, timestamp: (replay.fillTimestamp - 12) as number, root: replay.pre.root as string, forkBlock: replay.forkBlock as number }
+  : { slot: fixture.beaconSlot as number, timestamp: fixture.elTimestamp as number, root: fixture.beaconBlockRoot as string, forkBlock: fixture.elBlockNumber as number };
+const baseSlot = base.slot;
+const baseTimestamp = base.timestamp;
+console.log(`demo fixture: ${DEMO}`);
 
 // ------------------------------------------------------------------------------------------------
 // Load the real base state
@@ -46,7 +55,11 @@ const baseTimestamp: number = fixture.elTimestamp;
 
 async function loadHeader() {
   const file = `${DATA}header-${baseSlot}.json`;
-  if (existsSync(file)) return JSON.parse(readFileSync(file, "utf8"));
+  if (existsSync(file)) {
+    const h = JSON.parse(readFileSync(file, "utf8"));
+    // raw Beacon API responses are stored as { data: { root, header: { message } } }
+    return h.data ? { root: h.data.root, message: h.data.header.message } : h;
+  }
   const h = await getHeader(baseSlot);
   writeFileSync(file, JSON.stringify(h));
   return h;
@@ -173,7 +186,23 @@ async function pickPersonas() {
 }
 
 const personasFile = `${DATA}personas-${baseSlot}.json`;
-const personas = existsSync(personasFile) ? JSON.parse(readFileSync(personasFile, "utf8")) : await pickPersonas();
+function replayPersonas() {
+  const pick = (address: string, first: number, pred: (i: number) => boolean) => {
+    const rest = (byAddress.get(address.toLowerCase()) ?? []).filter((i) => i !== first && pred(i)).slice(0, 5);
+    return { address: getAddress(address), validators: [first, ...rest] };
+  };
+  const active = (i: number) => {
+    const v = sim.state.validators.getReadonly(i);
+    return !v.slashed && v.exitEpoch === Infinity && v.activationEpoch + 256 <= epoch;
+  };
+  return { seller: pick(replay.seller, replay.sourceIndex, active) };
+}
+// Replay: the seller is the operator that made the real request; the buyer is an independent address.
+const personas = replay
+  ? { ...(await pickPersonas()), ...replayPersonas() }
+  : existsSync(personasFile)
+    ? JSON.parse(readFileSync(personasFile, "utf8"))
+    : await pickPersonas();
 writeFileSync(personasFile, JSON.stringify(personas, null, 2));
 snapshot([...personas.seller.validators, ...personas.buyer.validators]);
 console.log("personas", personas);
@@ -208,7 +237,33 @@ async function sealAndInject(ts: bigint) {
 
 const simulated: { kind: string; tradeId?: string; slot: number; root: string; timestamp: string }[] = [];
 
+/** Checkpoint 1 from the REAL beacon state that processed the replayed mainnet request. */
+async function realCheckpointAccepted(body: { tradeId: string; source: number; target: number }) {
+  const acc = replay.encoded.accepted;
+  const src = decodeAbiParameters([validatorProofAbi], acc.sourceProof)[0] as { validator: { exitEpoch: bigint; withdrawableEpoch: bigint } };
+  // keep the simulation consistent with the real transition (used later for the simulated delivery)
+  const v = sim.state.validators.get(body.source);
+  v.exitEpoch = Number(src.validator.exitEpoch);
+  v.withdrawableEpoch = Number(src.validator.withdrawableEpoch);
+  const postHeader = JSON.parse(readFileSync(`${DATA}header-${replay.post.slot}.json`, "utf8")).data;
+  const ts = await nextTimestamp();
+  // The root is real; it is keyed by the fork's clock because the demo fill happens after mainnet's.
+  await injectBeaconRoot(ts, replay.post.root);
+  simulated.push({ kind: "accepted (real)", tradeId: body.tradeId, slot: replay.post.slot, root: replay.post.root, timestamp: ts.toString() });
+  return {
+    simulated: false,
+    source: `mainnet slot ${replay.post.slot} (tx ${replay.requestTx})`,
+    header: { slot: String(replay.post.slot), root: replay.post.root, state_root: postHeader.header.message.state_root },
+    timestamp: ts.toString(),
+    withdrawableEpoch: Number(src.validator.withdrawableEpoch),
+    stateRootProof: encodeStateRootProof(stateRootProof(postHeader.header.message, Number(ts))),
+    pendingConsolidationProof: acc.pendingConsolidationProof,
+    sourceProof: acc.sourceProof,
+  };
+}
+
 async function checkpointAccepted(body: { tradeId: string; source: number; target: number }) {
+  if (replay && body.source === replay.sourceIndex && body.target === replay.targetIndex) return realCheckpointAccepted(body);
   const { withdrawableEpoch } = sim.queueConsolidation(body.source, body.target);
   const ts = await nextTimestamp();
   const { header, stateRootProof } = await sealAndInject(ts);
@@ -277,9 +332,13 @@ createServer(async (req, res) => {
     if (url.pathname === "/api/info") {
       return send(res, 200, {
         baseSlot,
-        baseBlockRoot: fixture.beaconBlockRoot,
+        baseBlockRoot: base.root,
         baseTimestamp,
-        forkBlock: fixture.elBlockNumber,
+        forkBlock: base.forkBlock,
+        demo: DEMO,
+        replay: replay
+          ? { source: replay.sourceIndex, target: replay.targetIndex, tx: replay.requestTx, block: replay.requestBlock, postSlot: replay.post.slot }
+          : null,
         currentSlot: sim.slot,
         currentEpoch: sim.epoch,
         genesisTime: sim.genesisTime,
@@ -293,10 +352,11 @@ createServer(async (req, res) => {
     if (url.pathname === "/api/validators") {
       const address = url.searchParams.get("address")?.toLowerCase();
       const indices = url.searchParams.get("indices");
+      const persona = [personas.seller, personas.buyer].find((p: { address: string }) => p.address.toLowerCase() === address);
       const list = indices
         ? indices.split(",").map(Number)
         : address
-          ? (byAddress.get(address) ?? [])
+          ? [...new Set([...(persona?.validators ?? []), ...(byAddress.get(address) ?? [])])]
           : [];
       return send(res, 200, list.slice(0, 64).map(describe));
     }
@@ -308,7 +368,7 @@ createServer(async (req, res) => {
       }
       snapshot([source, target]);
       // The real base root may be overwritten by locally mined blocks; restore it.
-      await injectBeaconRoot(BigInt(baseTimestamp), fixture.beaconBlockRoot);
+      await injectBeaconRoot(BigInt(baseTimestamp), base.root as `0x${string}`);
       return send(res, 200, {
         simulated: false,
         stateRootProof: encodeStateRootProof(baseStateRootProof),
