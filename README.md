@@ -175,20 +175,24 @@ fill it, and the market enforces it at fill time for every route (WETH, Uniswap 
 
 **Why this credential.** The credential that expresses the seller's rule is World ID *Identity Check* with a
 `nationality` attribute, which is in preview. The minimum sufficient assurance available today is the
-**Passport (NFC) credential**: a real government-issued document holder, one account per passport, no personal
+**NFC document credential** (passport, or My Number Card in Japan): a real government-issued document holder, one account per passport, no personal
 data revealed. Proof of Human or Selfie Check would say nothing about a document; Identity Check will replace it
 when available (the policy is a pluggable contract). This is not a KYC or sanctions check, and the UI says so.
 
 **Flow.**
-1. IDKit requests a World ID 4.0 `passport({ signal: buyerAddress })` proof (legacy fallback disabled: the
-   legacy "document" level is satisfied by any higher level such as Orb) with a backend RP signature
-   ([`WorldGate.tsx` L106](frontend/src/components/WorldGate.tsx#L106), [`/api/world/rp-signature`](frontend/src/app/api/world/rp-signature/route.ts)).
+1. IDKit requests a World ID 4.0 NFC document proof, `any(passport, mnc)` bound to the buyer's address as signal
+   (legacy proofs disabled: the legacy "document" level is satisfied by any higher level such as Orb), with a
+   backend RP signature
+   ([`WorldGate.tsx` L118](frontend/src/components/WorldGate.tsx#L118), [`/api/world/rp-signature`](frontend/src/app/api/world/rp-signature/route.ts)).
 2. [`/api/world/verify`](frontend/src/app/api/world/verify/route.ts) checks the action, environment, credential
    identifier (L33) and that the signal is the buyer's address (L41), then verifies the proof with the Developer
    Portal `POST /api/v4/verify/{rp_id}` (L45) and signs an EIP-712 attestation (L69).
 3. [`WorldIdEligibility.attest`](contracts/src/world/WorldIdEligibility.sol#L53) records it; a World ID nullifier
    can be bound to only one account (L58). World ID 4.0 proofs can only be verified onchain on World Chain, so the
    Ethereum-side registry relies on the backend attester.
+
+**Verified end to end** with World App in production: My Number Card credential → Developer Portal verification
+→ onchain attestation → purchase in the Verified Market.
 
 **Alternative paths (demoed).** Unverified buyer → "Try to buy without verification" → rejected onchain with
 `BuyerNotEligible`. Cancelled request, missing Passport credential or a proof rejected by the backend → clear
