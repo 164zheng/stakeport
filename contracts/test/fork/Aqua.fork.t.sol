@@ -6,6 +6,8 @@ import {BeaconOracle} from "../../src/BeaconOracle.sol";
 import {NativeStakeMarket} from "../../src/NativeStakeMarket.sol";
 import {AquaStakeBidApp} from "../../src/aqua/AquaStakeBidApp.sol";
 import {IAqua} from "../../src/aqua/IAqua.sol";
+import {ISwapVM} from "@1inch/swap-vm/interfaces/ISwapVM.sol";
+import {MakerTraits} from "@1inch/swap-vm/libs/MakerTraits.sol";
 import {BeaconProofs} from "../../src/libraries/BeaconProofs.sol";
 import {IUniswapV3PoolOracle, IWstETH, UniswapStakePriceOracle} from "../../src/uniswap/UniswapStakePriceOracle.sol";
 import {Fixture} from "../utils/Fixture.sol";
@@ -21,6 +23,7 @@ contract AquaForkTest is ForkTest {
     IAqua constant AQUA = IAqua(0x1111113CCf1426A8E30e2bfF5E005d929bF6a90a);
     IWETH constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     address constant CONSOLIDATION_REQUEST = 0x0000BBdDc7CE488642fb579F8B00f3a590007251;
+    ISwapVM constant SWAP_VM = ISwapVM(0x111111338c5091E8440b67B168bAe16a668AC0De);
 
     NativeStakeMarket market;
     AquaStakeBidApp app;
@@ -38,7 +41,7 @@ contract AquaForkTest is ForkTest {
             IUniswapV3PoolOracle(U.WSTETH_WETH_V3), IWstETH(U.WSTETH), address(WETH), U.TWAP_WINDOW
         );
         market = new NativeStakeMarket(WETH, new BeaconOracle(), oracle, 1606824023, 1 days, 1 days);
-        app = new AquaStakeBidApp(AQUA, market);
+        app = new AquaStakeBidApp(AQUA, market, SWAP_VM);
 
         source = Fixture.validatorProof("sellableSource");
         target = Fixture.validatorProof("target");
@@ -61,7 +64,8 @@ contract AquaForkTest is ForkTest {
             maxPriceWad: maxPriceWad,
             minStakeGwei: 32 gwei,
             maxStakeGwei: 64 gwei,
-            salt: bytes32(uint256(1))
+            salt: bytes32(uint256(1)),
+            pricing: ISwapVM.Order({maker: maker, traits: MakerTraits.wrap(0), data: ""})
         });
     }
 
