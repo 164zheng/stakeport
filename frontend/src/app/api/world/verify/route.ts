@@ -8,7 +8,7 @@ import {
   ACCEPTED_IDENTIFIERS,
   CREDENTIAL_LABEL,
   ELIGIBILITY_TTL_SECONDS,
-  WORLD_ACTION,
+  worldAction,
   deployment,
   worldConfig,
 } from "@/lib/world-server";
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (!isAddress(account)) return fail(400, "invalid account");
 
   // 1. The proof must be for our action and environment.
-  if (!("action" in idkitResponse) || idkitResponse.action !== WORLD_ACTION) return fail(400, "wrong action");
+  if (!("action" in idkitResponse) || idkitResponse.action !== worldAction()) return fail(400, "wrong action");
   if (idkitResponse.environment !== c.environment) return fail(400, `expected ${c.environment} proof`);
 
   // 2. Only a passport credential (or its legacy document fallback) qualifies.

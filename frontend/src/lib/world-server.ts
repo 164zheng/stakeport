@@ -2,7 +2,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const WORLD_ACTION = process.env.WORLD_ACTION ?? "stakeport-verified-market";
+/**
+ * World ID action. World ID 4.0 uniqueness proofs are one-time per (user, action), so every fresh demo
+ * deployment uses its own action (scripts/export-frontend.sh writes `worldAction` into deployment.json).
+ */
+export function worldAction(): string {
+  return process.env.WORLD_ACTION ?? deployment().worldAction ?? "stakeport-verified-market";
+}
 /** Credential the Verified Market policy requires (must match WorldIdEligibility.requiredCredential). */
 export const CREDENTIAL_LABEL = "world-id:nfc-document";
 /** IDKit response identifiers accepted as a passport (World ID 4.0) or its legacy document fallback. */
@@ -29,6 +35,6 @@ export function worldConfig() {
   };
 }
 
-export function deployment(): { worldEligibility?: `0x${string}` } {
+export function deployment(): { worldEligibility?: `0x${string}`; worldAction?: string } {
   return JSON.parse(readFileSync(join(process.cwd(), "public", "deployment.json"), "utf8"));
 }

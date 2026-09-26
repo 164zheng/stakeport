@@ -16,5 +16,7 @@ cp proof-generator/src/abi.ts "$OUT/proofAbi.ts"
 sed -i '' 's#^import type .*$#// proof types are decoded with viem#' "$OUT/proofAbi.ts"
 sed -i '' '/^export const encode/,$d' "$OUT/proofAbi.ts"
 sed -i '' '/^import { encodeAbiParameters }/d' "$OUT/proofAbi.ts"
-cp deployments/${DEPLOYMENT_NAME:-local}.json frontend/public/deployment.json
+# World ID 4.0 proofs are one-time per (user, action): give every deployment its own action.
+jq --arg a "stakeport-verified-market-$(date +%s)" '. + {worldAction: $a}' \
+  deployments/${DEPLOYMENT_NAME:-local}.json > frontend/public/deployment.json
 echo "exported to $OUT and frontend/public/deployment.json"
