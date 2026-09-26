@@ -21,7 +21,7 @@ Built at ETHGlobal Tokyo 2026 (Classic Track).
 | Programmable withdrawal account | **EIP-7702** delegate on the seller's withdrawal EOA calls the consolidation predeploy, so `msg.sender` is the seller |
 | Trustless verification | **EIP-4788** beacon block roots + SSZ Merkle proofs of validators, balances and `pending_consolidations` (Fulu) |
 | Price discovery | **Uniswap** wstETH/WETH TWAP: orders can be priced relative to the LST market |
-| Payment | **ETH in one transaction** (`fillWithEth`), WETH, USDC in **one Uniswap v4 swap** through the StakePort hook, or a self-custodial **1inch Aqua** standing bid |
+| Payment | **ETH in one transaction** (`fillWithEth`), WETH, USDC in **one Uniswap v4 swap** through the StakePort hook, or a self-custodial **1inch Aqua** standing bid priced by a **SwapVM** Dutch auction |
 | Counterparty policy | Optional **Verified Market** listings: buyer must hold a **World ID NFC document** credential (passport or My Number Card), enforced onchain at fill |
 
 No LST, no custodian, no validator key transfer.
@@ -75,7 +75,7 @@ contracts/          Foundry
     uniswap/StakePortHook.sol     v4 hook: buy native stake with one swap
     uniswap/StakePortSwapRouter.sol
     uniswap/UniswapStakePriceOracle.sol   v3 TWAP staked-ETH reference price
-    aqua/AquaStakeBidApp.sol      1inch Aqua app: self-custodial standing bids
+    aqua/AquaStakeBidApp.sol      1inch Aqua app: self-custodial standing bids priced by SwapVM programs
     world/WorldIdEligibility.sol  World ID Passport eligibility registry (Verified Market policy)
   test/             unit tests (mocks) + mainnet fork tests (real beacon proofs, real predeploy, real pools)
 proof-generator/    TypeScript: Beacon API client, SSZ proofs (lodestar), proof service for the demo
@@ -129,7 +129,7 @@ CLI version of the same flow: `cd proof-generator && node scripts/e2e.ts` (with 
 
 ```bash
 cd contracts && forge test                 # 97 unit tests; fork tests are skipped without MAINNET_RPC_URL
-set -a; . ../.env; set +a; forge test      # + 26 mainnet fork tests (123 total)
+set -a; . ../.env; set +a; forge test      # + 32 mainnet fork tests (129 total)
 cd proof-generator && pnpm test            # gindex parity with Solidity, proof/ABI checks, queue math
 ```
 
@@ -177,16 +177,30 @@ Uniswap does two jobs: **it prices the stake and it settles the payment.**
 
 Tests: [`test/fork/Uniswap.fork.t.sol`](contracts/test/fork/Uniswap.fork.t.sol). Feedback: [`FEEDBACK.md`](FEEDBACK.md).
 
-### 1inch Aqua
+### 1inch Aqua + SwapVM
 
 [`AquaStakeBidApp.sol`](contracts/src/aqua/AquaStakeBidApp.sol) is an Aqua app for **standing bids on native
-stake**. A buyer ships a `StakeBid` strategy (target validator, max price per ETH, size range) with a WETH
-budget to the **official Aqua registry** (`0x1111113ccf1426a8e30e2bff5e005d929bf6a90a`). The WETH stays in the
-buyer's wallet. When a listing is priced within the bid, anyone calls
-[`matchBid` (L77)](contracts/src/aqua/AquaStakeBidApp.sol#L77): Aqua pulls exactly the payment from the buyer's
-wallet into the StakePort escrow ([L94](contracts/src/aqua/AquaStakeBidApp.sol#L94)) and the seller's validator
-is consolidated into the bid's target. One budget can fill several listings; `dock` withdraws the bid.
-Tests run against the official deployment on a mainnet fork ([`Aqua.fork.t.sol`](contracts/test/fork/Aqua.fork.t.sol)).
+stake**, priced by **1inch SwapVM programs**.
+
+- **Aqua (custody):** a buyer ships a `StakeBid` strategy (target validator, size range, hard price cap and a
+  SwapVM pricing order) with a WETH budget to the **official Aqua registry** (`0x1111113ccf1426a8e30e2bff5e005d929bf6a90a`).
+  The WETH stays in the buyer's wallet. When a listing is priced within the bid, anyone calls
+  [`matchBid` (L199)](contracts/src/aqua/AquaStakeBidApp.sol#L199) and Aqua pulls exactly the listing's price from
+  the buyer's wallet into the StakePort escrow ([L216](contracts/src/aqua/AquaStakeBidApp.sol#L216)).
+- **SwapVM (pricing):** the bid's price is a SwapVM program, e.g. a **Dutch auction**
+  (`StaticBalances → DutchAuctionBalanceOut → LimitSwap → Salt`, built by
+  [`buildDutchBid` L143](contracts/src/aqua/AquaStakeBidApp.sol#L143)) that raises the offer every second from 99.9% of
+  face to the entry-queue break-even, so price discovery happens onchain until a seller accepts. Native stake is not
+  a token, so the program prices a marker asset (1 unit = 1 wei of stake) against WETH and the app evaluates it
+  with SwapVM's `quote` in a static call ([L124](contracts/src/aqua/AquaStakeBidApp.sol#L124)); the bid limit is that
+  price, capped ([`limit` L132](contracts/src/aqua/AquaStakeBidApp.sol#L132)). The buyer pays the seller's ask.
+- **Router:** the mainnet `0x11111133…` SwapVM deployment is the AMM-only `AquaSwapVMRouter` (no Dutch-auction
+  opcodes), so the demo deploys the **official, unmodified `SwapVMRouter` v1.0.2** from source
+  ([`Deploy.s.sol` L52](contracts/script/Deploy.s.sol#L52)); opcode numbers are checked against its table in tests.
+
+Tests on a mainnet fork: [`Aqua.fork.t.sol`](contracts/test/fork/Aqua.fork.t.sol) (custody, budget, dock, impostor and
+redirect protections) and [`SwapVmBid.fork.t.sol`](contracts/test/fork/SwapVmBid.fork.t.sol) (opcode parity, rising
+auction, expiry, match only once the auction crosses the ask, cap).
 
 ### World (IDKit): Verified Market
 
