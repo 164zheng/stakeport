@@ -18,6 +18,10 @@ Deployed at block 3698658 with a 1-hour fill proof age and a 2-day accept window
 With `HOODI_RPC_URL` and `RELAYER_PRIVATE_KEY` in `.env`, `./scripts/hoodi.sh` starts the proof server, indexer,
 relayer and frontend against it (steps 2 and 3 below in one command).
 
+`cd proof-generator && pnpm -s hoodi-check` proves a live entry of Hoodi's `pending_consolidations` (checkpoint 1)
+against the deployed `BeaconOracle` with read-only calls; `--delivered <source>` checks the delivery predicate once
+it is processed.
+
 ## 1. Deploy the core contracts
 
 ```bash

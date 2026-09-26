@@ -14,6 +14,8 @@ cd proof-generator
 pnpm -s tx --watch         # live: prints every new StakePort transaction as you click through the UI
 pnpm -s tx --last          # every transaction of the latest trade: fill, checkpoint 1, checkpoint 2 + payout
 pnpm -s tx --trade 3       # a specific trade
+pnpm -s hoodi-check        # live Hoodi: prove a real pending consolidation against the deployed BeaconOracle
+pnpm -s hoodi-check --delivered <source>   # checkpoint 2 once that consolidation is processed
 pnpm -s tx 0x<txhash>      # any transaction (e.g. an Aqua bid match: WETH pulled from the buyer's wallet via Aqua)
 ```
 
@@ -25,8 +27,9 @@ pnpm -s tx 0x<txhash>      # any transaction (e.g. an Aqua bid match: WETH pulle
 | 1:20–2:00 | Step 2 | (Or *Buy with ETH*: one transaction, no approval.) "The buyer pays with USDC. **One Uniswap v4 swap**: our hook routes through the canonical pool, escrows WETH, verifies **SSZ proofs of both validators against an EIP-4788 root**, and submits an **EIP-7251** consolidation from the seller's address." Click *Buy with USDC*. |
 | 2:00–2:40 | Step 3 | "Checkpoint 1: the consensus layer accepted it. This proof is not simulated — it's the **real mainnet beacon state** from block 26058400, where this exact consolidation happened." Click *Relay checkpoint 1*; point at the green **real** badge. |
 | 2:40–3:10 | Step 4 | "Delivery is ~3 days later on mainnet, so we fast-forward a simulated state; the contract verifies it the same way and releases the payment." Click *Fast-forward*. |
-| 3:10–3:40 | `/bids`, `/` (Verified Market) | "Buyers can also post self-custodial standing bids on **1inch Aqua**, priced by a **SwapVM Dutch auction** that raises the offer from 99% to 101% of face over 18 hours until it crosses a listing (click *+1 hour* a few times, then *Match*); funds stay in the wallet until then. And sellers can require a **World ID** document credential: unverified buyers are rejected onchain." |
-| 3:40–4:00 | `/portfolio` | "A dashboard tells operators what to do next. Native stake becomes a liquid, trustless asset — without leaving Ethereum's consensus layer." |
+| 3:10–3:25 | terminal: `pnpm -s hoodi-check` | "And it's live on **Hoodi**. This takes a real consolidation waiting in today's Hoodi beacon state and proves it against our deployed oracle, the exact checkpoint-1 check: proofs fetched from a public Lodestar node, no state download, and forged claims revert." |
+| 3:25–3:45 | `/bids`, `/` (Verified Market) | "Buyers can also post self-custodial standing bids on **1inch Aqua**, priced by a **SwapVM Dutch auction** that raises the offer from 99% to 101% of face over 18 hours until it crosses a listing (click *+1 hour* a few times, then *Match*); funds stay in the wallet until then. And sellers can require a **World ID** document credential: unverified buyers are rejected onchain." |
+| 3:45–4:00 | `/portfolio` | "A dashboard tells operators what to do next. Native stake becomes a liquid, trustless asset — without leaving Ethereum's consensus layer." |
 
 ## Q&A cheat sheet
 

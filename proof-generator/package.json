@@ -6,7 +6,8 @@
     "gindices": "node src/gindices.ts",
     "fixtures": "node --max-old-space-size=12000 src/cli.ts",
     "test": "node --test \"test/**/*.test.ts\"",
-    "tx": "node scripts/show-tx.ts"
+    "tx": "node scripts/show-tx.ts",
+    "hoodi-check": "node scripts/hoodi-check.ts"
   },
   "pnpm": {
     "overrides": {
