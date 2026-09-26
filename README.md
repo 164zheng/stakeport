@@ -293,6 +293,11 @@ What the team (Hiroshi Tei) did:
 - World ID: Developer Portal app and RP setup, end-to-end verification with a real World App and My Number Card,
   and the debugging that found that the passport preset fell back to legacy Orb proofs and that Japanese users
   hold an `mnc` credential.
+- Security review direction: asked for the proof verification to be re-reviewed before deploying, which led to
+  binding the beacon header slot for exact epochs, delaying "not accepted" refunds past the EIP-7251 request
+  queue, and capping the accept window.
+- Testnet: deployed the contracts to Hoodi from their own keystore, and chose to show live Hoodi proofs alongside
+  the mainnet-fork demo.
 - Reviewing and testing every feature in the running demo, and the demo and pitch.
 
 AI-assisted files: everything under `contracts/src`, `contracts/test`, `contracts/script`, `proof-generator/`,
