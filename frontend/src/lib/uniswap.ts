@@ -13,7 +13,7 @@ import {
 } from "viem";
 import { nativeStakeMarketAbi, stakePortSwapRouterAbi, uniswapStakePriceOracleAbi } from "@/generated/abis";
 import { publicClient, testClient, write } from "./chain";
-import { getDeployment } from "./config";
+import { IS_FORK, getDeployment } from "./config";
 import { fillProofs, quote, type Listing } from "./market";
 
 const V4_QUOTER = "0x52F0E24D1c21C8A0cB1e5a5dD6198556BD9E1203" as const;
@@ -93,6 +93,7 @@ export async function quoteUsdcIn(ethOut: bigint) {
 
 /** Demo only: give the persona USDC by writing its balance on the fork. */
 export async function fundUsdc(a: Address, amount = parseUnits("250000", 6)) {
+  if (!IS_FORK) return;
   const d = await getDeployment();
   const bal = await publicClient.readContract({ address: d.usdc!, abi: erc20Abi, functionName: "balanceOf", args: [a] });
   if (bal >= amount / 2n) return;

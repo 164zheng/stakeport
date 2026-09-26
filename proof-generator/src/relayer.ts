@@ -20,7 +20,7 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { RemoteBeacon, remoteProofs } from "./remote.ts";
+import { RemoteBeacon, provableBlockId, remoteProofs } from "./remote.ts";
 import {
   balanceProofAbi,
   pendingConsolidationProofAbi,
@@ -89,7 +89,7 @@ async function settleReal(id: bigint, t: Trade, now: bigint) {
   const epochNow = (now - genesis) / 384n;
 
   if (t.status === 1) {
-    const p = await remoteProofs(beacon, "head", { validators: [source], pending: { source, target } });
+    const p = await remoteProofs(beacon, await provableBlockId(beacon), { validators: [source], pending: { source, target } });
     if (BigInt(p.timestamp) <= t.filledAt) return log(`  #${id}: waiting for a beacon state after the fill`);
     const src = p.validators[0];
     if (p.pending) {
@@ -105,7 +105,7 @@ async function settleReal(id: bigint, t: Trade, now: bigint) {
 
   if (t.status === 2) {
     if (epochNow < t.withdrawableEpoch) return log(`  #${id}: delivery at epoch ${t.withdrawableEpoch} (now ${epochNow})`);
-    const p = await remoteProofs(beacon, "head", { validators: [source], balances: [source] });
+    const p = await remoteProofs(beacon, await provableBlockId(beacon), { validators: [source], balances: [source] });
     const src = p.validators[0];
     if (src.validator.slashed) {
       log(`  #${id}: source slashed`);

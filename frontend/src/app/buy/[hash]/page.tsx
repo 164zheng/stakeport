@@ -3,11 +3,12 @@
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, ErrorBox, Mono } from "@/components/ui";
-import { api, type ValidatorInfo } from "@/lib/api";
+import { api, validatorsOf, type ValidatorInfo } from "@/lib/api";
 import { errorMessage } from "@/lib/chain";
 import { getDeployment, type Deployment } from "@/lib/config";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
 import { WorldGate } from "@/components/WorldGate";
+import { MyValidators } from "@/components/WalletBits";
 import { useQueues } from "@/components/QueuePanel";
 import { fairValue } from "@/lib/queues";
 import { fillWithEth, fillWithWeth, isVerifiedMarket, listings, quote, type Listing } from "@/lib/market";
@@ -19,9 +20,9 @@ type PayWith = "eth" | "weth" | "usdc";
 export default function BuyPage({ params }: { params: Promise<{ hash: string }> }) {
   const { hash } = use(params);
   const router = useRouter();
-  const { info } = usePersona();
+  const { info, buyer, wallet } = usePersona();
+  const [reload, setReload] = useState(0);
   const replay = info?.replay;
-  const buyer = info?.personas.buyer.address;
 
   const [listing, setListing] = useState<Listing>();
   const [source, setSource] = useState<ValidatorInfo>();
@@ -49,7 +50,7 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
       const isReplay = replay && Number(l.order.sourceIndex) === replay.source;
       const [[src], own, replayTarget] = await Promise.all([
         api.validators({ indices: [Number(l.order.sourceIndex)] }),
-        api.validators({ address: buyer }),
+        validatorsOf(buyer),
         isReplay ? api.validators({ indices: [replay.target] }) : Promise.resolve([]),
       ]);
       setSource(src);
@@ -65,7 +66,7 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
         setUsdcIn(q.usdcIn);
       }
     })().catch((e) => setError(errorMessage(e)));
-  }, [buyer, hash, replay]);
+  }, [buyer, hash, replay, reload]);
 
   async function onBuy() {
     if (!listing || !buyer || target === undefined) return;
@@ -191,6 +192,11 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
             );
           })}
           {targets?.length === 0 && <p className="text-sm text-muted">No eligible 0x02 validator for this buyer.</p>}
+          {wallet && (
+            <div className="pt-2">
+              <MyValidators address={wallet} onChange={() => setReload((r) => r + 1)} />
+            </div>
+          )}
         </div>
       </Card>
 

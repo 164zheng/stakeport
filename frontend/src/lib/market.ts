@@ -8,7 +8,7 @@ import {
 } from "@/generated/proofAbi";
 import { api } from "./api";
 import { publicClient, testClient, write } from "./chain";
-import { INDEXER_URL, getDeployment } from "./config";
+import { INDEXER_URL, IS_FORK, getDeployment } from "./config";
 
 export interface StakeOrder {
   seller: Address;
@@ -184,11 +184,13 @@ export async function quote(order: StakeOrder, amountGwei: bigint) {
  * On the fork we do not hold the real seller's key, so we set the delegation designator directly.
  */
 export async function enableDelegation(eoa: Address) {
+  if (!IS_FORK) throw new Error("On a real network the seller signs an EIP-7702 authorization (see Delegate7702)");
   const d = await getDeployment();
   await testClient.setCode({ address: eoa, bytecode: `0xef0100${d.delegate.slice(2)}` as Hex });
 }
 
 export async function fundPersona(a: Address, ethAmount = "100") {
+  if (!IS_FORK) return; // real networks: the user's own funds
   const bal = await publicClient.getBalance({ address: a });
   if (bal < parseEther("1")) await testClient.setBalance({ address: a, value: parseEther(ethAmount) });
 }

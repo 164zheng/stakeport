@@ -1,4 +1,5 @@
 import { PROOF_SERVICE_URL } from "./config";
+import { connectedAddress } from "./wallet";
 
 export interface ValidatorInfo {
   index: number;
@@ -27,7 +28,8 @@ export interface ServiceInfo {
   currentSlot: number;
   currentEpoch: number;
   genesisTime: number;
-  personas: { seller: Persona; buyer: Persona };
+  /** demo personas on the local fork; null against a real network */
+  personas: { seller: Persona; buyer: Persona } | null;
   demo?: string;
   /** Real mainnet consolidation replayed by the demo: checkpoint 1 for this pair uses real beacon data. */
   replay?: { source: number; target: number; tx: string; block: number; postSlot: number } | null;
@@ -77,3 +79,29 @@ export const api = {
       sourceBalanceProof: `0x${string}`;
     }>("/api/checkpoint/delivered", { tradeId: tradeId.toString(), source, target }),
 };
+
+/**
+ * A connected wallet registers its validators by index (the Beacon API cannot look validators up by
+ * withdrawal address); demo personas are resolved by the proof service.
+ */
+export const myValidatorIndices = (address: string): number[] => {
+  try {
+    return JSON.parse(localStorage.getItem(`stakeport.validators.${address.toLowerCase()}`) ?? "[]");
+  } catch {
+    return [];
+  }
+};
+
+export function setMyValidatorIndices(address: string, indices: number[]) {
+  try {
+    localStorage.setItem(`stakeport.validators.${address.toLowerCase()}`, JSON.stringify([...new Set(indices)]));
+  } catch {}
+}
+
+export async function validatorsOf(address: string): Promise<ValidatorInfo[]> {
+  if (connectedAddress()?.toLowerCase() === address.toLowerCase()) {
+    const indices = myValidatorIndices(address);
+    return indices.length ? api.validators({ indices }) : [];
+  }
+  return api.validators({ address });
+}

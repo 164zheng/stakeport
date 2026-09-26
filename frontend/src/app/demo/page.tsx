@@ -62,7 +62,7 @@ const STEPS: StepDef[] = [
 ];
 
 export default function DemoPage() {
-  const { info, setRole } = usePersona();
+  const { info, setRole, seller, buyer } = usePersona();
   const market = useQueues();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -73,8 +73,6 @@ export default function DemoPage() {
   const [proofs, setProofs] = useState<Record<number, ProofInfo>>({});
 
   const replay = info?.replay;
-  const seller = info?.personas.seller.address;
-  const buyer = info?.personas.buyer.address;
   const add = (s: string) => setLog((l) => [...l, s]);
 
   async function run(fn: () => Promise<void>) {

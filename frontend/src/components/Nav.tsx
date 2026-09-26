@@ -16,7 +16,7 @@ const links = [
 
 export function Nav() {
   const path = usePathname();
-  const { role, setRole, address, error } = usePersona();
+  const { role, setRole, address, error, wallet, connect, disconnect } = usePersona();
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-bg/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
@@ -49,6 +49,15 @@ export function Nav() {
             ))}
           </div>
           <span className="font-mono text-xs text-muted">{address ? short(address, 4) : error ? "offline" : "…"}</span>
+          {wallet ? (
+            <button onClick={disconnect} className="rounded-lg border border-line px-2 py-1 text-xs text-muted hover:text-fg">
+              Disconnect
+            </button>
+          ) : (
+            <button onClick={() => connect().catch(() => {})} className="rounded-lg border border-line px-2 py-1 text-xs text-muted hover:text-fg">
+              Connect wallet
+            </button>
+          )}
         </div>
       </div>
     </header>

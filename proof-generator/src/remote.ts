@@ -148,6 +148,11 @@ export function validatorFieldsFromJson(v: ValidatorJson["validator"]): Validato
   };
 }
 
+/** Newest block whose root is already in EIP-4788: the parent of head (head's own child may not exist yet). */
+export async function provableBlockId(node: RemoteBeacon): Promise<string> {
+  return (await node.header("head")).message.parent_root;
+}
+
 /**
  * A consistent set of proofs from one beacon state, keyed for the contracts:
  * `stateRootProof.timestamp` is the EIP-4788 key under which that state's block root is stored.

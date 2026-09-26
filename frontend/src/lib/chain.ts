@@ -9,14 +9,22 @@ import {
   type Address,
   type Hash,
 } from "viem";
-import { mainnet } from "viem/chains";
-import { RPC_URL } from "./config";
+import { defineChain } from "viem";
+import { CHAIN_ID, RPC_URL } from "./config";
+import { walletFor } from "./wallet";
 
-// The demo runs on an anvil mainnet fork started with --auto-impersonate, so personas can send
-// transactions without private keys.
-export const publicClient = createPublicClient({ chain: mainnet, transport: http(RPC_URL) });
-export const testClient = createTestClient({ chain: mainnet, mode: "anvil", transport: http(RPC_URL) });
-export const walletClient = createWalletClient({ chain: mainnet, transport: http(RPC_URL) });
+export const chain = defineChain({
+  id: CHAIN_ID,
+  name: CHAIN_ID === 1 ? "Ethereum (fork)" : CHAIN_ID === 560048 ? "Hoodi" : `Chain ${CHAIN_ID}`,
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: [RPC_URL] } },
+});
+
+// On the local fork (anvil --auto-impersonate) demo personas send transactions without keys.
+// With a connected wallet, its own account signs instead (see write()).
+export const publicClient = createPublicClient({ chain, transport: http(RPC_URL) });
+export const testClient = createTestClient({ chain, mode: "anvil", transport: http(RPC_URL) });
+export const walletClient = createWalletClient({ chain, transport: http(RPC_URL) });
 
 export async function write(params: {
   account: Address;
@@ -27,8 +35,9 @@ export async function write(params: {
   value?: bigint;
 }): Promise<{ hash: Hash; gasUsed: bigint }> {
   // simulate first so a revert surfaces its custom error instead of a mined failed transaction
-  await publicClient.simulateContract({ ...params, chain: mainnet } as never);
-  const hash = await walletClient.writeContract({ ...params, chain: mainnet } as never);
+  await publicClient.simulateContract({ ...params, chain } as never);
+  const signer = walletFor(params.account) ?? walletClient;
+  const hash = await signer.writeContract({ ...params, chain } as never);
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error(`${params.functionName} reverted`);
   return { hash, gasUsed: receipt.gasUsed };

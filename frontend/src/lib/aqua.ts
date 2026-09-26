@@ -1,6 +1,6 @@
 import { decodeAbiParameters, decodeFunctionData, encodeAbiParameters, erc20Abi, keccak256, parseEther, type Address, type Hex } from "viem";
 import { aquaStakeBidAppAbi, nativeStakeMarketAbi } from "@/generated/abis";
-import { api } from "./api";
+import { validatorsOf } from "./api";
 import { publicClient, write } from "./chain";
 import { INDEXER_URL, getDeployment } from "./config";
 import { fillProofs, fundPersona, quote, type Listing } from "./market";
@@ -187,7 +187,7 @@ export async function matchQuote(b: BidInfo, l: Listing, amountGwei: bigint) {
 export async function matchBid(b: BidInfo, l: Listing, caller: Address) {
   const d = await getDeployment();
   await fundPersona(caller);
-  const targets = await api.validators({ address: b.bid.maker });
+  const targets = await validatorsOf(b.bid.maker);
   const t = targets.find((v) => v.pubkey.toLowerCase() === b.bid.targetPubkey.toLowerCase());
   if (!t) throw new Error("bid target not found");
   const proofs = await fillProofs(Number(l.order.sourceIndex), t.index);

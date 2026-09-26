@@ -4,19 +4,19 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { parseEther } from "viem";
 import { Badge, Button, Card, ErrorBox, Mono } from "@/components/ui";
-import { api, type ValidatorInfo } from "@/lib/api";
+import { validatorsOf, type ValidatorInfo } from "@/lib/api";
 import { errorMessage, publicClient } from "@/lib/chain";
 import { getDeployment, type Deployment } from "@/lib/config";
 import { gweiToEth, pct, short } from "@/lib/format";
 import { enableDelegation, isDelegated, listOrder, type StakeOrder } from "@/lib/market";
 import { usePersona } from "@/lib/persona";
 import { stakeReference } from "@/lib/uniswap";
+import { Delegate7702, MyValidators } from "@/components/WalletBits";
 import { useQueues } from "@/components/QueuePanel";
 import { fairValue } from "@/lib/queues";
 
 export default function SellPage() {
-  const { info } = usePersona();
-  const seller = info?.personas.seller.address;
+  const { info, seller, wallet } = usePersona();
   const [validators, setValidators] = useState<ValidatorInfo[]>();
   const [selected, setSelected] = useState<number>();
   const [delegated, setDelegated] = useState<boolean>();
@@ -33,7 +33,7 @@ export default function SellPage() {
 
   const refresh = useCallback(async () => {
     if (!seller) return;
-    const [vs, del, d] = await Promise.all([api.validators({ address: seller }), isDelegated(seller), getDeployment()]);
+    const [vs, del, d] = await Promise.all([validatorsOf(seller), isDelegated(seller), getDeployment()]);
     setValidators(vs);
     setDelegated(del);
     setDeployment(d);
@@ -100,6 +100,7 @@ export default function SellPage() {
         </p>
       </div>
       <ErrorBox error={error} />
+      {wallet && <MyValidators address={wallet} onChange={() => refresh().catch(() => {})} />}
 
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <Card>
@@ -166,15 +167,21 @@ export default function SellPage() {
               </span>
               {delegated ? (
                 <Badge value="active" />
-              ) : (
+              ) : wallet ? null : (
                 <Button onClick={onDelegate} loading={busy === "delegate"} disabled={!seller}>
                   Enable EIP-7702
                 </Button>
               )}
             </div>
+            {!delegated && wallet && seller && (
+              <div className="mt-3">
+                <Delegate7702 seller={seller} onDone={() => refresh().catch(() => {})} />
+              </div>
+            )}
             <p className="mt-3 text-xs text-muted">
-              Demo note: on the fork we set the delegation designator directly because we don&apos;t hold the real
-              seller&apos;s key. In production the wallet signs a 7702 authorization.
+              {wallet
+                ? "Your withdrawal address signs a 7702 authorization for the StakePort delegate."
+                : "Demo note: on the fork we set the delegation designator directly because we don't hold the real seller's key. With a wallet, the withdrawal address signs a 7702 authorization."}
             </p>
           </Card>
 

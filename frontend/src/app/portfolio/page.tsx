@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Address } from "viem";
 import { Badge, Card, ErrorBox, Mono, Stat } from "@/components/ui";
-import { api, type ValidatorInfo } from "@/lib/api";
+import { validatorsOf, type ValidatorInfo } from "@/lib/api";
 import { publicClient } from "@/lib/chain";
 import { MAINNET_GENESIS, SECONDS_PER_EPOCH } from "@/lib/config";
 import { duration, eth, gweiToEth, pct, short, usd } from "@/lib/format";
 import { isVerifiedMarket, listings, trades, wethBalance, type Listing, type Trade } from "@/lib/market";
 import { eligibility } from "@/lib/world";
+import { MyValidators } from "@/components/WalletBits";
 import { usePersona } from "@/lib/persona";
 import { ethUsd } from "@/lib/prices";
 import { stakingApr } from "@/lib/queues";
@@ -24,8 +25,8 @@ interface Action {
 }
 
 export default function PortfolioPage() {
-  const { role, info } = usePersona();
-  const address = info?.personas[role].address;
+  const { role, address, wallet } = usePersona();
+  const [reload, setReload] = useState(0);
   const [validators, setValidators] = useState<ValidatorInfo[]>();
   const [myTrades, setMyTrades] = useState<Trade[]>([]);
   const [myListings, setMyListings] = useState<Listing[]>([]);
@@ -45,10 +46,10 @@ export default function PortfolioPage() {
     if (!address) return;
     const lower = address.toLowerCase();
     Promise.all([
-      api.validators({ address }),
+      validatorsOf(address),
       trades(),
       listings(),
-      ethUsd(),
+      ethUsd().catch(() => undefined), // no Chainlink feed on testnets
       wethBalance(address as Address),
       publicClient.getBlock(),
       eligibility(address as Address),
@@ -64,7 +65,7 @@ export default function PortfolioPage() {
         setNow(Number(b.timestamp));
       })
       .catch((e) => setError(e.message));
-  }, [address]);
+  }, [address, reload]);
 
   const m = useMemo(() => {
     const vs = validators ?? [];
@@ -141,6 +142,7 @@ export default function PortfolioPage() {
         </div>
       </div>
       <ErrorBox error={error} />
+      {wallet && <MyValidators address={wallet} onChange={() => setReload((r) => r + 1)} />}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

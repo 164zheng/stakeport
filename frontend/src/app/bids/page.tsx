@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { parseEther } from "viem";
 import { Badge, Button, Card, ErrorBox, Mono } from "@/components/ui";
-import { api, type ValidatorInfo } from "@/lib/api";
+import { api, validatorsOf, type ValidatorInfo } from "@/lib/api";
 import { createBid, dockBid, listBids, matchBid, matchQuote, type BidInfo } from "@/lib/aqua";
 import { testClient } from "@/lib/chain";
 import { errorMessage } from "@/lib/chain";
-import { getDeployment, type Deployment } from "@/lib/config";
+import { IS_FORK, getDeployment, type Deployment } from "@/lib/config";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
 import { listings, type Listing } from "@/lib/market";
 import { usePersona } from "@/lib/persona";
@@ -25,9 +25,7 @@ interface Match {
 
 export default function BidsPage() {
   const router = useRouter();
-  const { role, info } = usePersona();
-  const buyer = info?.personas.buyer.address;
-  const actor = info?.personas[role].address;
+  const { role, buyer, address: actor } = usePersona();
 
   const [deployment, setDeployment] = useState<Deployment>();
   const [bids, setBids] = useState<BidInfo[]>();
@@ -74,7 +72,7 @@ export default function BidsPage() {
 
   useEffect(() => {
     if (!buyer) return;
-    api.validators({ address: buyer }).then((vs) => {
+    validatorsOf(buyer).then((vs) => {
       const eligible = vs.filter((v) => v.credentials === "0x02" && v.status === "active");
       setTargets(eligible);
       setTarget(eligible[0]?.index);
@@ -236,7 +234,7 @@ export default function BidsPage() {
       <Card className="overflow-x-auto">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">Bids</h2>
-          <Button
+          {IS_FORK && <Button
             variant="ghost"
             loading={busy === "ff"}
             onClick={() =>
@@ -247,7 +245,7 @@ export default function BidsPage() {
             }
           >
             ⏩ +1 hour (fork clock)
-          </Button>
+          </Button>}
         </div>
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-muted">
