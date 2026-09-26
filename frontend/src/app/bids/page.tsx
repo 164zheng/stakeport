@@ -5,12 +5,15 @@ import { useCallback, useEffect, useState } from "react";
 import { parseEther } from "viem";
 import { Badge, Button, Card, ErrorBox, Mono } from "@/components/ui";
 import { api, type ValidatorInfo } from "@/lib/api";
-import { bidLimit, createBid, dockBid, listBids, matchBid, matchQuote, type BidInfo } from "@/lib/aqua";
+import { createBid, dockBid, listBids, matchBid, matchQuote, type BidInfo } from "@/lib/aqua";
+import { testClient } from "@/lib/chain";
 import { errorMessage } from "@/lib/chain";
 import { getDeployment, type Deployment } from "@/lib/config";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
 import { listings, type Listing } from "@/lib/market";
 import { usePersona } from "@/lib/persona";
+import { useQueues } from "@/components/QueuePanel";
+import { fairValue } from "@/lib/queues";
 
 interface Match {
   bid: BidInfo;
@@ -33,6 +36,13 @@ export default function BidsPage() {
   const [target, setTarget] = useState<number>();
   const [pricePct, setPricePct] = useState("100.2");
   const [budget, setBudget] = useState("64");
+  const [mode, setMode] = useState<"dutch" | "fixed">("dutch");
+  const [startPct, setStartPct] = useState("99.9");
+  const [endPct, setEndPct] = useState<string>();
+  const [hours, setHours] = useState("6");
+  const market = useQueues();
+  const fairPct = market ? (fairValue(market.q, 32, market.apr.apr).fair / 32) * 100 : undefined;
+  const endValue = endPct ?? (fairPct ? fairPct.toFixed(3) : "100.18");
   const [busy, setBusy] = useState<string>();
   const [steps, setSteps] = useState<string[]>([]);
   const [error, setError] = useState<string>();
@@ -88,8 +98,17 @@ export default function BidsPage() {
     run("create", async () => {
       const t = targets.find((x) => x.index === target);
       if (!buyer || !t) throw new Error("choose a target validator");
+      const wad = (pct: string) => parseEther((Number(pct) / 100).toFixed(18));
       await createBid(
-        { maker: buyer, targetPubkey: t.pubkey, priceWad: parseEther((Number(pricePct) / 100).toString()), budget: parseEther(budget) },
+        mode === "dutch"
+          ? {
+              maker: buyer,
+              targetPubkey: t.pubkey,
+              priceWad: wad(endValue), // hard cap = auction end price
+              budget: parseEther(budget),
+              dutch: { startPriceWad: wad(startPct), endPriceWad: wad(endValue), duration: Math.min(65535, Math.round(Number(hours) * 3600)) },
+            }
+          : { maker: buyer, targetPubkey: t.pubkey, priceWad: wad(pricePct), budget: parseEther(budget) },
         (s) => setSteps((x) => [...x, s]),
       );
     });
@@ -134,20 +153,47 @@ export default function BidsPage() {
                 ))}
               </select>
             </label>
-            <div className="grid grid-cols-2 gap-3">
-              <label>
+            <div className="flex rounded-xl border border-line p-0.5">
+              <button onClick={() => setMode("dutch")} className={`flex-1 rounded-lg py-1.5 ${mode === "dutch" ? "bg-white/10" : "text-muted"}`}>
+                Dutch auction (SwapVM)
+              </button>
+              <button onClick={() => setMode("fixed")} className={`flex-1 rounded-lg py-1.5 ${mode === "fixed" ? "bg-white/10" : "text-muted"}`}>
+                Fixed price
+              </button>
+            </div>
+            {mode === "dutch" ? (
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  <label>
+                    <span className="text-muted">Start (% of face)</span>
+                    <input value={startPct} onChange={(e) => setStartPct(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-2" />
+                  </label>
+                  <label>
+                    <span className="text-muted">End (% of face)</span>
+                    <input value={endValue} onChange={(e) => setEndPct(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-2" />
+                  </label>
+                  <label>
+                    <span className="text-muted">Duration (h, ≤18)</span>
+                    <input value={hours} onChange={(e) => setHours(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-2" />
+                  </label>
+                </div>
+                <p className="text-xs text-muted">
+                  A 1inch SwapVM program (StaticBalances → DutchAuctionBalanceOut → LimitSwap) raises the offer every second
+                  from {startPct}% to {endValue}% of face{fairPct ? " (the entry-queue break-even)" : ""}; the first listing it
+                  crosses gets filled at the seller&apos;s ask.
+                </p>
+              </>
+            ) : (
+              <label className="block">
                 <span className="text-muted">Max price (% of face)</span>
                 <input value={pricePct} onChange={(e) => setPricePct(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-2" />
               </label>
-              <label>
-                <span className="text-muted">Budget (WETH)</span>
-                <input value={budget} onChange={(e) => setBudget(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-2" />
-              </label>
-            </div>
-            <p className="text-xs text-muted">
-              Pays up to {(32 * Number(pricePct) / 100).toFixed(3)} WETH per 32 ETH validator. Funds never leave your wallet
-              until a match.
-            </p>
+            )}
+            <label className="block">
+              <span className="text-muted">Budget (WETH)</span>
+              <input value={budget} onChange={(e) => setBudget(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-2" />
+            </label>
+            <p className="text-xs text-muted">Funds never leave your wallet until a match.</p>
             <Button className="w-full" onClick={onCreate} loading={busy === "create"} disabled={!buyer || target === undefined}>
               Ship bid to Aqua
             </Button>
@@ -187,14 +233,28 @@ export default function BidsPage() {
       </div>
 
       <Card className="overflow-x-auto">
-        <h2 className="mb-3 font-semibold">Bids</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-semibold">Bids</h2>
+          <Button
+            variant="ghost"
+            loading={busy === "ff"}
+            onClick={() =>
+              run("ff", async () => {
+                await testClient.increaseTime({ seconds: 3600 });
+                await testClient.mine({ blocks: 1 });
+              })
+            }
+          >
+            ⏩ +1 hour (fork clock)
+          </Button>
+        </div>
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-muted">
             <tr>
               <th className="py-2">Strategy</th>
               <th>Maker</th>
-              <th>Max price</th>
-              <th>Per 32 ETH</th>
+              <th>Pricing</th>
+              <th>Now, per 32 ETH</th>
               <th>Available / budget</th>
               <th>Status</th>
               <th />
@@ -209,13 +269,13 @@ export default function BidsPage() {
                 <td>
                   <Mono>{short(b.bid.maker, 4)}</Mono>
                 </td>
-                <td>{pct(Number(b.bid.maxPriceWad) / 1e18)}</td>
-                <td>{eth(bidLimit(b.bid, 32n * 10n ** 9n), 3)} WETH</td>
+                <td>{b.dutch ? <span className="text-accent">SwapVM Dutch auction</span> : `fixed ${pct(Number(b.bid.maxPriceWad) / 1e18)}`}</td>
+                <td>{b.priceFor32 !== undefined ? `${eth(b.priceFor32, 4)} WETH` : <span className="text-muted">expired</span>}</td>
                 <td>
                   {eth(b.available, 2)} / {eth(b.budget, 2)} WETH
                 </td>
                 <td>
-                  <Badge value={b.available > 0n ? "open" : "filled"} />
+                  <Badge value={b.priceFor32 === undefined ? "expired" : b.available > 0n ? "open" : "filled"} />
                 </td>
                 <td>
                   {b.available > 0n && b.bid.maker === buyer && role === "buyer" && (

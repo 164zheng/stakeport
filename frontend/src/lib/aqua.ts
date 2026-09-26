@@ -43,6 +43,13 @@ const aquaAbi = [
 
 const wethAbi = [...erc20Abi, { type: "function", name: "deposit", stateMutability: "payable", inputs: [], outputs: [] }] as const;
 
+/** 1inch SwapVM order (v1.0.2) pricing 1 wei of stake in WETH. Empty `data` = fixed cap only. */
+export interface SwapVmOrder {
+  maker: Address;
+  traits: bigint;
+  data: Hex;
+}
+
 export interface StakeBid {
   maker: Address;
   targetPubkey: Hex;
@@ -50,6 +57,14 @@ export interface StakeBid {
   minStakeGwei: bigint;
   maxStakeGwei: bigint;
   salt: Hex;
+  pricing: SwapVmOrder;
+}
+
+export interface DutchParams {
+  startPriceWad: bigint;
+  endPriceWad: bigint;
+  /** seconds, at most 65535 (SwapVM DutchAuction uses a uint16 duration) */
+  duration: number;
 }
 
 export interface BidInfo {
@@ -57,6 +72,9 @@ export interface BidInfo {
   hash: Hex;
   available: bigint;
   budget: bigint;
+  /** what the bid pays right now for 32 ETH (SwapVM quote, capped); undefined if expired */
+  priceFor32?: bigint;
+  dutch: boolean;
 }
 
 const bidAbi = aquaStakeBidAppAbi.find((x) => x.type === "function" && x.name === "matchBid")!.inputs[0];
@@ -73,10 +91,13 @@ export async function listBids(): Promise<BidInfo[]> {
     // Aqua keys balances by the shipper: ignore bids shipped by someone other than the named maker
     if (bid.maker.toLowerCase() !== l.args.maker?.toLowerCase()) continue;
     const available = (await publicClient.readContract({ address: d.aquaBidApp, abi: aquaStakeBidAppAbi, functionName: "available", args: [bid] })) as bigint;
+    const priceFor32 = (await publicClient
+      .readContract({ address: d.aquaBidApp, abi: aquaStakeBidAppAbi, functionName: "limit", args: [bid, 32n * 10n ** 9n] })
+      .catch(() => undefined)) as bigint | undefined;
     const tx = await publicClient.getTransaction({ hash: l.transactionHash });
     const { args } = decodeFunctionData({ abi: aquaAbi, data: tx.input });
     const budget = (args as readonly [Address, Hex, readonly Address[], readonly bigint[]])[3][0];
-    out.push({ bid, hash: l.args.strategyHash as Hex, available, budget });
+    out.push({ bid, hash: l.args.strategyHash as Hex, available, budget, priceFor32, dutch: bid.pricing.data !== "0x" });
   }
   return out.reverse();
 }
@@ -85,16 +106,46 @@ export function bidLimit(bid: StakeBid, amountGwei: bigint) {
   return (amountGwei * 10n ** 9n * bid.maxPriceWad) / 10n ** 18n;
 }
 
-export async function createBid(p: { maker: Address; targetPubkey: Hex; priceWad: bigint; budget: bigint }, onStep?: (s: string) => void) {
+/** Current bid limit from the contract: SwapVM price capped by maxPriceWad. */
+export async function liveLimit(bid: StakeBid, amountGwei: bigint) {
+  const d = await getDeployment();
+  return (await publicClient.readContract({
+    address: d.aquaBidApp!,
+    abi: aquaStakeBidAppAbi,
+    functionName: "limit",
+    args: [bid, amountGwei],
+  })) as bigint;
+}
+
+export async function createBid(
+  p: { maker: Address; targetPubkey: Hex; priceWad: bigint; budget: bigint; dutch?: DutchParams },
+  onStep?: (s: string) => void,
+) {
   const d = await getDeployment();
   await fundPersona(p.maker);
+  const saltNum = BigInt(Date.now());
+  let pricing: SwapVmOrder = { maker: p.maker, traits: 0n, data: "0x" };
+  if (p.dutch) {
+    onStep?.("Building a SwapVM Dutch-auction program");
+    const start = (await publicClient.getBlock()).timestamp;
+    // raise the offer from start to end price over `duration` seconds: balanceOut /= decay^elapsed
+    const ratio = Number(p.dutch.startPriceWad) / Number(p.dutch.endPriceWad);
+    const decay = BigInt(Math.floor(Math.pow(ratio, 1 / p.dutch.duration) * 1e18));
+    pricing = (await publicClient.readContract({
+      address: d.aquaBidApp!,
+      abi: aquaStakeBidAppAbi,
+      functionName: "buildDutchBid",
+      args: [p.maker, p.dutch.startPriceWad, Number(start), p.dutch.duration, decay, saltNum & 0xffffffffffffffffn],
+    })) as unknown as SwapVmOrder;
+  }
   const bid: StakeBid = {
     maker: p.maker,
     targetPubkey: p.targetPubkey,
     maxPriceWad: p.priceWad,
     minStakeGwei: 32n * 10n ** 9n,
     maxStakeGwei: 2048n * 10n ** 9n,
-    salt: keccak256(encodeAbiParameters([{ type: "uint256" }], [BigInt(Date.now())])),
+    salt: keccak256(encodeAbiParameters([{ type: "uint256" }], [saltNum])),
+    pricing,
   };
   const bal = await publicClient.readContract({ address: d.weth, abi: wethAbi, functionName: "balanceOf", args: [p.maker] });
   if (bal < p.budget) {
@@ -119,7 +170,7 @@ export async function dockBid(b: BidInfo) {
 /** Payment the listing would require and whether the bid covers it. */
 export async function matchQuote(b: BidInfo, l: Listing, amountGwei: bigint) {
   const payment = await quote(l.order, amountGwei);
-  const limit = bidLimit(b.bid, amountGwei);
+  const limit = await liveLimit(b.bid, amountGwei);
   return { payment, limit, ok: payment <= limit && payment <= b.available };
 }
 
