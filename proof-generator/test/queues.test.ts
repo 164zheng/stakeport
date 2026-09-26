@@ -15,11 +15,11 @@ const state = (o: { slot: number; exit: number; cons: number; deposits: number[]
 });
 
 test("churn follows Electra limits", () => {
-  // 1.36M validators * 32 ETH = 43.5M ETH -> balance churn 663 ETH, activation/exit capped at 256
+  // 1.36M validators * 32 ETH = 43.52M ETH -> balance churn 664 ETH, activation/exit capped at 256
   const s = state({ slot: 32 * 1000, exit: 0, cons: 0, deposits: [], validators: 1_360_000 });
   const q = queueStats(s, totalActiveBalance(s));
   assert.equal(q.churnEthPerEpoch.activationExit, 256);
-  assert.equal(q.churnEthPerEpoch.consolidation, 663 - 256);
+  assert.equal(q.churnEthPerEpoch.consolidation, 664 - 256);
 });
 
 test("small network uses the minimum churn and no consolidation churn", () => {
