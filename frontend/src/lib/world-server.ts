@@ -22,10 +22,8 @@ export function worldConfig() {
     environment,
     attesterKey,
     configured: Boolean(appId && rpId && signingKey && attesterKey),
-    verifyUrl:
-      environment === "staging"
-        ? `https://staging-developer.worldcoin.org/api/v4/verify/${rpId}`
-        : `https://developer.world.org/api/v4/verify/${rpId}`,
+    // one endpoint for both environments; the proof payload carries its environment
+    verifyUrl: `https://developer.world.org/api/v4/verify/${rpId}`,
   };
 }
 
