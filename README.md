@@ -248,4 +248,4 @@ member designed or wrote._
 
 ## Team
 
-_TODO: names and social handles_
+- **Hiroshi Tei**: GitHub [@164zheng](https://github.com/164zheng) · X [@164zheng](https://x.com/164zheng)
