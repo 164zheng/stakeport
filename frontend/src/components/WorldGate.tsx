@@ -101,10 +101,16 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
           action={config.action}
           rp_context={ctx}
           environment={config.environment}
-          allow_legacy_proofs={true}
+          // World ID 4.0 Passport only: the legacy fallback accepts any level >= document (e.g. Orb)
+          allow_legacy_proofs={false}
           preset={passport({ signal: signalFor(buyer) })}
           handleVerify={async (result) => {
-            await verifyAndAttest(buyer, result);
+            try {
+              await verifyAndAttest(buyer, result);
+            } catch (e) {
+              setNote({ kind: "bad", text: `Rejected: ${errorMessage(e)}` });
+              throw e;
+            }
           }}
           onSuccess={async () => {
             setNote({ kind: "ok", text: "Passport verified: you can buy in the Verified Market." });
@@ -117,9 +123,12 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
                 : code === "user_rejected" || code === "cancelled"
                   ? "Verification cancelled. Nothing was recorded; the purchase is not allowed."
                   : code === "failed_by_host_app"
-                    ? "Our backend rejected the proof (wrong credential, signal or failed Developer Portal check). The purchase is not allowed."
-                    : `Verification failed (${code}). The purchase is not allowed.`;
-            setNote({ kind: "bad", text });
+                    ? undefined
+                    : code === "world_id_4_not_available"
+                      ? "Your World App has no World ID 4.0 Passport credential yet. Add your passport (NFC) in World App and retry."
+                      : `Verification failed (${code}). The purchase is not allowed.`;
+            // failed_by_host_app: our backend's reason is already shown by handleVerify
+            if (text) setNote({ kind: "bad", text });
           }}
         />
       )}

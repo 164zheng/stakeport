@@ -32,7 +32,9 @@ export async function POST(request: Request) {
   // 2. Only a passport credential (or its legacy document fallback) qualifies.
   const item = idkitResponse.responses.find((r) => ACCEPTED_IDENTIFIERS.has(r.identifier));
   if (!item) {
-    return fail(403, "credential_not_accepted", idkitResponse.responses.map((r) => r.identifier));
+    const got = idkitResponse.responses.map((r) => r.identifier);
+    console.warn("[world] credential not accepted", { protocol: idkitResponse.protocol_version, got });
+    return fail(403, "credential_not_accepted", got);
   }
 
   // 3. The proof's signal must be the buyer's address, so it cannot be replayed for another account.
@@ -46,7 +48,10 @@ export async function POST(request: Request) {
     body: JSON.stringify(idkitResponse),
   });
   const verified = await res.json().catch(() => ({}));
-  if (!res.ok || verified.success !== true) return fail(403, "world_verification_failed", verified);
+  if (!res.ok || verified.success !== true) {
+    console.warn("[world] developer portal rejected proof", verified);
+    return fail(403, "world_verification_failed", verified);
+  }
   if (verified.environment && verified.environment !== c.environment) return fail(403, "environment mismatch");
 
   // 5. Sign the attestation for the onchain eligibility registry.

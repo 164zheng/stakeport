@@ -180,11 +180,12 @@ data revealed. Proof of Human or Selfie Check would say nothing about a document
 when available (the policy is a pluggable contract). This is not a KYC or sanctions check, and the UI says so.
 
 **Flow.**
-1. IDKit requests `passport({ signal: buyerAddress })` with a backend RP signature
-   ([`WorldGate.tsx` L105](frontend/src/components/WorldGate.tsx#L105), [`/api/world/rp-signature`](frontend/src/app/api/world/rp-signature/route.ts)).
+1. IDKit requests a World ID 4.0 `passport({ signal: buyerAddress })` proof (legacy fallback disabled: the
+   legacy "document" level is satisfied by any higher level such as Orb) with a backend RP signature
+   ([`WorldGate.tsx` L106](frontend/src/components/WorldGate.tsx#L106), [`/api/world/rp-signature`](frontend/src/app/api/world/rp-signature/route.ts)).
 2. [`/api/world/verify`](frontend/src/app/api/world/verify/route.ts) checks the action, environment, credential
-   identifier (L33) and that the signal is the buyer's address (L39), then verifies the proof with the Developer
-   Portal `POST /api/v4/verify/{rp_id}` (L43) and signs an EIP-712 attestation (L64).
+   identifier (L33) and that the signal is the buyer's address (L41), then verifies the proof with the Developer
+   Portal `POST /api/v4/verify/{rp_id}` (L45) and signs an EIP-712 attestation (L69).
 3. [`WorldIdEligibility.attest`](contracts/src/world/WorldIdEligibility.sol#L53) records it; a World ID nullifier
    can be bound to only one account (L58). World ID 4.0 proofs can only be verified onchain on World Chain, so the
    Ethereum-side registry relies on the backend attester.

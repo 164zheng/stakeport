@@ -6,7 +6,9 @@ export const WORLD_ACTION = process.env.WORLD_ACTION ?? "stakeport-verified-mark
 /** Credential the Verified Market policy requires (must match WorldIdEligibility.requiredCredential). */
 export const CREDENTIAL_LABEL = "world-id:passport";
 /** IDKit response identifiers accepted as a passport (World ID 4.0) or its legacy document fallback. */
-export const ACCEPTED_IDENTIFIERS = new Set(["passport", "document", "secure_document"]);
+/** IDKit response identifiers accepted as a passport. Legacy (3.0) levels are not accepted: their
+ * "document" request is satisfied by any higher level such as Orb, which proves nothing about a document. */
+export const ACCEPTED_IDENTIFIERS = new Set(["passport"]);
 export const ELIGIBILITY_TTL_SECONDS = 30 * 24 * 3600;
 
 export function worldConfig() {
