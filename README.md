@@ -177,14 +177,14 @@ Uniswap does two jobs: **it prices the stake and it settles the payment.**
    returns a `BeforeSwapDelta` that takes the swapper's input so the pool curve is skipped
    ([L140](contracts/src/uniswap/StakePortHook.sol#L140)). Adding liquidity is disabled
    ([L158](contracts/src/uniswap/StakePortHook.sol#L158)). The hook address is mined with CREATE2
-   ([`Deploy.s.sol` L42](contracts/script/Deploy.s.sol#L42)).
+   ([`Deploy.s.sol` L46](contracts/script/Deploy.s.sol#L46)).
 2. **Router** ([`StakePortSwapRouter.sol`](contracts/src/uniswap/StakePortSwapRouter.sol)): `unlockCallback`
    ([L38](contracts/src/uniswap/StakePortSwapRouter.sol#L38)) swaps with hookData and settles the input.
 3. **TWAP price oracle** ([`UniswapStakePriceOracle.sol`](contracts/src/uniswap/UniswapStakePriceOracle.sol)):
    30-minute TWAP of the v3 wstETH/WETH 0.01% pool ([`observe` L46](contracts/src/uniswap/UniswapStakePriceOracle.sol#L46))
    divided by `stEthPerToken` gives the market price of staked ETH
    ([L61](contracts/src/uniswap/UniswapStakePriceOracle.sol#L61)). Sellers list "LST market − 30 bps"; the
-   market evaluates it at fill time ([`quote` L247](contracts/src/NativeStakeMarket.sol#L247)).
+   market evaluates it at fill time ([`quote` L321](contracts/src/NativeStakeMarket.sol#L321)).
 4. **Frontend**: V4Quoter for the USDC amount, one-click purchase
    ([`frontend/src/lib/uniswap.ts`](frontend/src/lib/uniswap.ts)).
 
@@ -221,8 +221,8 @@ auction, expiry, match only once the auction crosses the ask, cap).
 **Trust moment.** Some sellers (funds, companies) must not trade their stake with counterparties in sanctioned
 jurisdictions. They list in the **Verified Market**: only buyers who pass the listing's eligibility policy can
 fill it, and the market enforces it at fill time for every route (WETH, Uniswap hook, Aqua bid)
-([`NativeStakeMarket.sol` L229](contracts/src/NativeStakeMarket.sol#L229),
-[`listOrderWithPolicy` L189](contracts/src/NativeStakeMarket.sol#L189)).
+([`NativeStakeMarket.sol` L275](contracts/src/NativeStakeMarket.sol#L275),
+[`listOrderWithPolicy` L211](contracts/src/NativeStakeMarket.sol#L211)).
 
 **Why this credential.** The credential that expresses the seller's rule is World ID *Identity Check* with a
 `nationality` attribute, which is in preview. The minimum sufficient assurance available today is the
