@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Badge, Card, ErrorBox, Mono } from "@/components/ui";
 import { api, type ValidatorInfo } from "@/lib/api";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
-import { listings, quote, type Listing } from "@/lib/market";
+import { isVerifiedMarket, listings, quote, type Listing } from "@/lib/market";
 
 export default function MarketPage() {
   const [items, setItems] = useState<Listing[]>();
@@ -87,7 +87,12 @@ export default function MarketPage() {
                     <div className="text-xs text-muted">Validator</div>
                     <div className="font-semibold">#{l.order.sourceIndex.toString()}</div>
                   </div>
-                  <Badge value={l.state} />
+                  <div className="flex gap-1.5">
+                    {isVerifiedMarket(l) && (
+                      <span className="rounded-full bg-warn/15 px-2.5 py-0.5 text-xs font-medium text-warn">World ID</span>
+                    )}
+                    <Badge value={l.state} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

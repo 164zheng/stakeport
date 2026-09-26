@@ -8,7 +8,8 @@ import { api, type ValidatorInfo } from "@/lib/api";
 import { publicClient } from "@/lib/chain";
 import { MAINNET_GENESIS, SECONDS_PER_EPOCH } from "@/lib/config";
 import { duration, eth, gweiToEth, pct, short, usd } from "@/lib/format";
-import { listings, trades, wethBalance, type Listing, type Trade } from "@/lib/market";
+import { isVerifiedMarket, listings, trades, wethBalance, type Listing, type Trade } from "@/lib/market";
+import { eligibility } from "@/lib/world";
 import { usePersona } from "@/lib/persona";
 import { EST_STAKING_APR, ethUsd } from "@/lib/prices";
 
@@ -27,6 +28,8 @@ export default function PortfolioPage() {
   const [validators, setValidators] = useState<ValidatorInfo[]>();
   const [myTrades, setMyTrades] = useState<Trade[]>([]);
   const [myListings, setMyListings] = useState<Listing[]>([]);
+  const [verifiedListings, setVerifiedListings] = useState(0);
+  const [world, setWorld] = useState<{ eligible: boolean; until: bigint }>();
   const [price, setPrice] = useState<number>();
   const [weth, setWeth] = useState<bigint>(0n);
   const [now, setNow] = useState<number>(0);
@@ -35,8 +38,18 @@ export default function PortfolioPage() {
   useEffect(() => {
     if (!address) return;
     const lower = address.toLowerCase();
-    Promise.all([api.validators({ address }), trades(), listings(), ethUsd(), wethBalance(address as Address), publicClient.getBlock()])
-      .then(([vs, ts, ls, p, w, b]) => {
+    Promise.all([
+      api.validators({ address }),
+      trades(),
+      listings(),
+      ethUsd(),
+      wethBalance(address as Address),
+      publicClient.getBlock(),
+      eligibility(address as Address),
+    ])
+      .then(([vs, ts, ls, p, w, b, e]) => {
+        setWorld(e);
+        setVerifiedListings(ls.filter((l) => l.state === "open" && isVerifiedMarket(l)).length);
         setValidators(vs);
         setMyTrades(ts.filter((t) => t.buyer.toLowerCase() === lower || t.seller.toLowerCase() === lower));
         setMyListings(ls.filter((l) => l.order.seller.toLowerCase() === lower));
@@ -89,10 +102,16 @@ export default function PortfolioPage() {
         if (l.state === "open" && Number(l.order.expiry) - now < 3 * 86400) out.push({ level: "soon", text: `Listing for #${l.order.sourceIndex} expires in ${duration(Number(l.order.expiry) - now)}` });
       }
     }
+    if (role === "buyer" && world && !world.eligible && verifiedListings > 0) {
+      out.push({ level: "now", text: `${verifiedListings} Verified Market listing(s) need a World ID Passport: verify from a listing`, href: "/" });
+    }
+    if (role === "buyer" && world?.eligible && Number(world.until) - now < 3 * 86400) {
+      out.push({ level: "soon", text: `World ID eligibility expires in ${duration(Number(world.until) - now)}: re-verify to keep Verified Market access` });
+    }
     if (role === "buyer" && m.compounding.length === 0) out.push({ level: "info", text: "No 0x02 validator: convert one to compounding credentials to receive stake" });
     if (weth > 10n ** 18n) out.push({ level: "info", text: `${eth(weth)} WETH idle: browse listings to put it to work`, href: "/" });
     return out;
-  }, [myTrades, m, myListings, validators, role, weth, now]);
+  }, [myTrades, m, myListings, validators, role, weth, now, world, verifiedListings]);
 
   const usdOf = (ethAmount: number) => (price ? usd(ethAmount * price) : "…");
   const statusCounts = (validators ?? []).reduce<Record<string, number>>((a, v) => ((a[v.status] = (a[v.status] ?? 0) + 1), a), {});
@@ -106,7 +125,14 @@ export default function PortfolioPage() {
             {role === "buyer" ? "Buyer" : "Seller"} <Mono>{address ?? "…"}</Mono> · validator data from a real mainnet beacon state
           </p>
         </div>
-        <span className="text-xs text-muted">ETH {price ? usd(price) : "…"} (Chainlink)</span>
+        <div className="flex items-center gap-3 text-xs text-muted">
+          {role === "buyer" && world && (
+            <span className={world.eligible ? "text-good" : ""}>
+              World ID Passport: {world.eligible ? `verified until ${new Date(Number(world.until) * 1000).toLocaleDateString()}` : "not verified"}
+            </span>
+          )}
+          <span>ETH {price ? usd(price) : "…"} (Chainlink)</span>
+        </div>
       </div>
       <ErrorBox error={error} />
 

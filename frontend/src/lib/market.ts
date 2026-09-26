@@ -28,6 +28,8 @@ export interface Listing {
   order: StakeOrder;
   state: OrderState;
   blockNumber: bigint;
+  /** eligibility policy (e.g. World ID Verified Market); zero address = open to everyone */
+  policy: Address;
 }
 
 export const TradeStatus = ["None", "RequestSubmitted", "Accepted", "Delivered", "Failed"] as const;
@@ -69,12 +71,13 @@ export async function listings(): Promise<Listing[]> {
   const out: Listing[] = [];
   for (const log of logs) {
     const order = log.args.order as unknown as StakeOrder;
-    const [used, active] = await Promise.all([
+    const [used, active, policy] = await Promise.all([
       publicClient.readContract({ address: d.market, abi: nativeStakeMarketAbi, functionName: "nonceUsed", args: [order.seller, order.nonce] }),
       publicClient.readContract({ address: d.market, abi: nativeStakeMarketAbi, functionName: "activeTradeBySource", args: [order.sourceIndex] }),
+      publicClient.readContract({ address: d.market, abi: nativeStakeMarketAbi, functionName: "policyOf", args: [log.args.orderHash as Hex] }),
     ]);
     const state: OrderState = used ? "filled" : order.expiry < now ? "expired" : active !== 0n ? "trading" : "open";
-    out.push({ hash: log.args.orderHash as Hex, order, state, blockNumber: log.blockNumber });
+    out.push({ hash: log.args.orderHash as Hex, order, state, blockNumber: log.blockNumber, policy: policy as Address });
   }
   // A filled nonce may also be a cancellation; mark those via the cancel event.
   const cancels = await publicClient.getContractEvents({
@@ -152,11 +155,23 @@ export async function fundPersona(a: Address, ethAmount = "100") {
 // Writes
 // ------------------------------------------------------------------------------------------------
 
-export async function listOrder(order: StakeOrder) {
+export async function listOrder(order: StakeOrder, verifiedOnly = false) {
   const d = await getDeployment();
   await fundPersona(order.seller);
+  if (verifiedOnly) {
+    if (!d.worldEligibility) throw new Error("WorldIdEligibility not deployed");
+    return write({
+      account: order.seller,
+      address: d.market,
+      abi: nativeStakeMarketAbi,
+      functionName: "listOrderWithPolicy",
+      args: [order, d.worldEligibility],
+    });
+  }
   return write({ account: order.seller, address: d.market, abi: nativeStakeMarketAbi, functionName: "listOrder", args: [order] });
 }
+
+export const isVerifiedMarket = (l: Listing) => l.policy !== "0x0000000000000000000000000000000000000000";
 
 export async function cancelOrder(seller: Address, nonce: bigint) {
   const d = await getDeployment();

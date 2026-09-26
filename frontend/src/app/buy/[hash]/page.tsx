@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, ErrorBox, Mono } from "@/components/ui";
 import { api, type ValidatorInfo } from "@/lib/api";
 import { errorMessage } from "@/lib/chain";
 import { getDeployment, type Deployment } from "@/lib/config";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
-import { fillWithWeth, listings, quote, type Listing } from "@/lib/market";
+import { WorldGate } from "@/components/WorldGate";
+import { fillWithWeth, isVerifiedMarket, listings, quote, type Listing } from "@/lib/market";
 import { buyWithUsdc, stakeReference, usdcQuoteForListing } from "@/lib/uniswap";
 import { usePersona } from "@/lib/persona";
 
@@ -29,6 +30,8 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
   const [usdcIn, setUsdcIn] = useState<bigint>();
   const [reference, setReference] = useState<bigint>();
   const [steps, setSteps] = useState<string[]>([]);
+  const [eligible, setEligible] = useState<boolean>();
+  const onEligible = useCallback((e: boolean) => setEligible(e), []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -71,7 +74,12 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
           : await fillWithWeth(listing, buyer, target, onStep);
       router.push(`/trades/${id}`);
     } catch (e) {
-      setError(errorMessage(e));
+      const msg = errorMessage(e);
+      setError(
+        msg.includes("BuyerNotEligible")
+          ? "Rejected onchain (BuyerNotEligible): this Verified Market listing only accepts buyers with a World ID Passport attestation."
+          : msg,
+      );
       setBusy(false);
     }
   }
@@ -113,6 +121,8 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
           {listing && <Badge value={listing.state} />}
         </div>
       </Card>
+
+      {listing && buyer && isVerifiedMarket(listing) && <WorldGate buyer={buyer} onEligible={onEligible} />}
 
       <Card>
         <h2 className="font-semibold">Receive into</h2>
@@ -166,7 +176,9 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
       </Card>
 
       <Button className="w-full py-3 text-base" onClick={onBuy} loading={busy} disabled={!listing || listing.state !== "open" || target === undefined || !t}>
-        Buy {source ? gweiToEth(source.effectiveBalanceGwei) : ""} ETH of native stake
+        {listing && isVerifiedMarket(listing) && eligible === false
+          ? "Try to buy without verification"
+          : `Buy ${source ? gweiToEth(source.effectiveBalanceGwei) : ""} ETH of native stake`}
       </Button>
       {steps.length > 0 && (
         <Card>

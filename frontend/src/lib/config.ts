@@ -16,6 +16,7 @@ export interface Deployment {
   usdc?: `0x${string}`;
   aqua?: `0x${string}`;
   aquaBidApp?: `0x${string}`;
+  worldEligibility?: `0x${string}`;
 }
 
 let cached: Promise<Deployment> | undefined;

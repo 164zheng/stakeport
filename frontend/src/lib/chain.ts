@@ -1,4 +1,6 @@
 import {
+  BaseError,
+  ContractFunctionRevertedError,
   createPublicClient,
   createTestClient,
   createWalletClient,
@@ -24,15 +26,23 @@ export async function write(params: {
   args?: readonly unknown[];
   value?: bigint;
 }): Promise<{ hash: Hash; gasUsed: bigint }> {
+  // simulate first so a revert surfaces its custom error instead of a mined failed transaction
+  await publicClient.simulateContract({ ...params, chain: mainnet } as never);
   const hash = await walletClient.writeContract({ ...params, chain: mainnet } as never);
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error(`${params.functionName} reverted`);
   return { hash, gasUsed: receipt.gasUsed };
 }
 
-/** Surfaces the custom error name of a reverted call. */
+/** Surfaces the custom error name (and args) of a reverted call. */
 export function errorMessage(e: unknown): string {
-  const err = e as { shortMessage?: string; message?: string; cause?: { data?: { errorName?: string } } };
-  const name = err.cause?.data?.errorName;
-  return name ? `${name}` : (err.shortMessage ?? err.message ?? String(e));
+  if (e instanceof BaseError) {
+    const reverted = e.walk((x) => x instanceof ContractFunctionRevertedError);
+    if (reverted instanceof ContractFunctionRevertedError && reverted.data?.errorName) {
+      const args = reverted.data.args?.map(String).join(", ");
+      return args ? `${reverted.data.errorName}(${args})` : reverted.data.errorName;
+    }
+    return e.shortMessage;
+  }
+  return e instanceof Error ? e.message : String(e);
 }

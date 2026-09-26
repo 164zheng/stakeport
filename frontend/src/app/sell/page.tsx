@@ -23,6 +23,7 @@ export default function SellPage() {
   const [price, setPrice] = useState("31.7");
   const [bps, setBps] = useState("30");
   const [minPayment, setMinPayment] = useState("31");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState<string>();
   const [listed, setListed] = useState<string>();
@@ -77,7 +78,7 @@ export default function SellPage() {
         expiry: now + 30n * 86400n,
         nonce: BigInt(Date.now()),
       };
-      const { hash } = await listOrder(order);
+      const { hash } = await listOrder(order, verifiedOnly);
       setListed(hash);
     } catch (e) {
       setError(errorMessage(e));
@@ -219,7 +220,22 @@ export default function SellPage() {
                 )}
               </div>
             )}
-            <Button className="mt-5 w-full" onClick={onList} loading={busy === "list"} disabled={!v || !delegated}>
+            <label className="mt-5 flex items-start gap-3 rounded-xl border border-line px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={verifiedOnly}
+                disabled={!deployment?.worldEligibility}
+                onChange={(e) => setVerifiedOnly(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Verified Market: World ID Passport holders only</span>
+                <span className="block text-xs text-muted">
+                  For sellers who must avoid counterparties in sanctioned jurisdictions. Enforced onchain at fill time.
+                </span>
+              </span>
+            </label>
+            <Button className="mt-4 w-full" onClick={onList} loading={busy === "list"} disabled={!v || !delegated}>
               List validator #{v?.index ?? "…"}
             </Button>
             {listed && (
