@@ -95,6 +95,20 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
     uint64 internal constant MAX_DUST_BALANCE = 1 gwei; // 1 ETH in gwei
     uint256 internal constant BPS = 10_000;
 
+    /// @notice How long after the fill a state must be before it can prove the request was ignored.
+    /// @dev The EIP-7251 predeploy dequeues at most 2 requests per block, so a request queued behind
+    /// others is processed in a later block. A state showing the source not exiting is only final once
+    /// the request has been dequeued. Each block adds (count - 1) to the predeploy's `excess` but only
+    /// (count - 2) to the queue, so queue <= excess, and a request costs fake_exponential(1, excess, 17)
+    /// wei. A 6 hour delay (1800 blocks) needs a queue of 3600, priced at ~e^211 wei per request.
+    uint256 public constant REQUEST_DEQUEUE_DELAY = 6 hours;
+    /// @notice Upper bound on `acceptWindow` that keeps acceptance provable for the whole window.
+    /// @dev An accepted pair stays in pending_consolidations until the source is withdrawable,
+    /// at least 1 + MAX_SEED_LOOKAHEAD + MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 261 epochs (~27.8h), and
+    /// EIP-4788 keeps roots for 8191 blocks (~27.3h). A proof is therefore available for >= ~55h after
+    /// the fill; before that, `refundExpired` could refund a buyer whose stake was delivered.
+    uint256 public constant MAX_ACCEPT_WINDOW = 2 days;
+
     IERC20 public immutable weth;
     IBeaconOracle public immutable beaconOracle;
     IStakePriceOracle public immutable priceOracle;
@@ -163,6 +177,8 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
     error NotSeller();
     error BuyerNotEligible(address buyer);
     error InsufficientEth(uint256 value, uint256 payment);
+    error RequestMayBeQueued();
+    error InvalidAcceptWindow();
 
     constructor(
         IERC20 weth_,
@@ -172,6 +188,7 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
         uint256 maxProofAge_,
         uint256 acceptWindow_
     ) EIP712("StakePort", "1") {
+        if (acceptWindow_ <= REQUEST_DEQUEUE_DELAY || acceptWindow_ > MAX_ACCEPT_WINDOW) revert InvalidAcceptWindow();
         weth = weth_;
         beaconOracle = beaconOracle_;
         priceOracle = priceOracle_;
@@ -347,7 +364,7 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
         if (sourceBalance.index != t.sourceIndex) revert IndexMismatch();
         uint64 balance = beaconOracle.verifyBalance(stateRoot, sourceBalance);
 
-        bool processed = !source.validator.slashed && source.validator.withdrawableEpoch <= epochAt(state.timestamp)
+        bool processed = !source.validator.slashed && source.validator.withdrawableEpoch <= epochOf(state)
             && balance < MAX_DUST_BALANCE;
         if (!processed) revert NotDelivered();
 
@@ -359,6 +376,8 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
 
     /// @notice Refund: a state after the fill shows the source exit was never initiated, so the
     /// consensus layer ignored the request (e.g. seller front-ran it, churn limit, invalid target).
+    /// The state must be `REQUEST_DEQUEUE_DELAY` after the fill so the request can no longer be pending
+    /// in the EIP-7251 predeploy queue.
     function proveNotAccepted(
         uint256 tradeId,
         BeaconProofs.StateRootProof calldata state,
@@ -366,6 +385,7 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
     ) external nonReentrant {
         Trade storage t = trades[tradeId];
         if (t.status != Status.RequestSubmitted) revert BadStatus(t.status);
+        if (state.timestamp <= t.filledAt + REQUEST_DEQUEUE_DELAY) revert RequestMayBeQueued();
         bytes32 stateRoot = _stateAfterFill(t, state);
         _verifySource(t, stateRoot, source);
         if (source.validator.exitEpoch != BeaconProofs.FAR_FUTURE_EPOCH) revert NotFailed();
@@ -416,8 +436,15 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
         );
     }
 
+    /// @notice Approximate epoch at an execution timestamp (UI helper; settlement uses `epochOf`).
     function epochAt(uint256 timestamp) public view returns (uint64) {
         return uint64((timestamp - genesisTime) / SECONDS_PER_SLOT / SLOTS_PER_EPOCH);
+    }
+
+    /// @notice Exact epoch of a proven beacon state, from its header slot (missed slots make the
+    /// EIP-4788 timestamp run ahead of the state).
+    function epochOf(BeaconProofs.StateRootProof calldata state) public pure returns (uint64) {
+        return uint64(state.slot / SLOTS_PER_EPOCH);
     }
 
     function getTrade(uint256 tradeId) external view returns (Trade memory) {
@@ -455,7 +482,7 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
     {
         if (p.state.timestamp + maxProofAge < block.timestamp) revert StaleProof();
         bytes32 stateRoot = beaconOracle.verifiedStateRoot(p.state);
-        uint64 epoch = epochAt(p.state.timestamp);
+        uint64 epoch = epochOf(p.state);
 
         // Source: the seller's active, non-exiting validator.
         BeaconProofs.Validator calldata s = p.source.validator;

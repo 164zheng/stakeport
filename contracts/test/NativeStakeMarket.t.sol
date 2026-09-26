@@ -4,6 +4,9 @@ pragma solidity ^0.8.26;
 import {NativeStakeMarket} from "../src/NativeStakeMarket.sol";
 import {Stake7702Delegate} from "../src/Stake7702Delegate.sol";
 import {BeaconProofs} from "../src/libraries/BeaconProofs.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IBeaconOracle} from "../src/interfaces/IBeaconOracle.sol";
+import {IStakePriceOracle} from "../src/interfaces/IStakePriceOracle.sol";
 import {MarketBase} from "./utils/MarketBase.sol";
 
 contract FillTest is MarketBase {
@@ -264,6 +267,16 @@ contract FillTest is MarketBase {
         _expectFillRevert(o, _sign(o, sellerPk), _proofs(s, _targetValidator()), abi.encodeWithSelector(NativeStakeMarket.SourceNotSellable.selector));
     }
 
+    function test_revert_sourceTooYoungAtProvenSlot() public {
+        BeaconProofs.Validator memory s = _sourceValidator();
+        NativeStakeMarket.FillProofs memory p = _proofs(s, _targetValidator());
+        uint64 epoch = market.epochOf(p.state);
+        p.source.validator.activationEpoch = epoch - 256; // old enough by the timestamp ...
+        p.state.slot -= 32; // ... but the proven state is one epoch earlier (missed slots)
+        NativeStakeMarket.StakeOrder memory o = _order();
+        _expectFillRevert(o, _sign(o, sellerPk), p, abi.encodeWithSelector(NativeStakeMarket.SourceNotSellable.selector));
+    }
+
     function test_revert_sourceNotYetActive() public {
         BeaconProofs.Validator memory s = _sourceValidator();
         s.activationEpoch = FAR;
@@ -490,6 +503,23 @@ contract SettlementTest is MarketBase {
         _deliver(v, 0);
     }
 
+    /// Missed slots make the EIP-4788 timestamp run ahead of the proven state: the epoch comes from the
+    /// header slot, not from the timestamp.
+    function test_proveDelivered_usesProvenSlotNotTimestamp() public {
+        _accept(tradeId, withdrawableEpoch);
+        _warpToEpoch(withdrawableEpoch);
+        BeaconProofs.StateRootProof memory st = _state(vm.getBlockTimestamp());
+        st.slot = uint64(withdrawableEpoch) * 32 - 1; // last slot of the previous epoch
+        BeaconProofs.ValidatorProof memory sp = _sourceProof(_exitingSource(withdrawableEpoch));
+        BeaconProofs.BalanceProof memory bp = _balance(SOURCE_INDEX, 0);
+        vm.expectRevert(NativeStakeMarket.NotDelivered.selector);
+        market.proveDelivered(tradeId, st, sp, bp);
+
+        st.slot += 1;
+        market.proveDelivered(tradeId, st, sp, bp);
+        assertEq(uint8(_status()), uint8(NativeStakeMarket.Status.Delivered));
+    }
+
     function test_proveDelivered_revertsWhileBalanceRemains() public {
         _accept(tradeId, withdrawableEpoch);
         _warpToEpoch(withdrawableEpoch);
@@ -526,8 +556,12 @@ contract SettlementTest is MarketBase {
 
     // --- failure paths ---------------------------------------------------------------------------
 
+    function _pastDequeueDelay() internal {
+        vm.warp(market.getTrade(tradeId).filledAt + market.REQUEST_DEQUEUE_DELAY() + 12);
+    }
+
     function test_proveNotAccepted_refundsBuyer() public {
-        vm.warp(vm.getBlockTimestamp() + 24);
+        _pastDequeueDelay();
         vm.expectEmit(address(market));
         emit NativeStakeMarket.TradeFailed(tradeId, 31.7 ether);
         market.proveNotAccepted(tradeId, _state(vm.getBlockTimestamp()), _sourceProof(_sourceValidator()));
@@ -537,7 +571,7 @@ contract SettlementTest is MarketBase {
     }
 
     function test_proveNotAccepted_revertsIfExitInitiated() public {
-        vm.warp(vm.getBlockTimestamp() + 24);
+        _pastDequeueDelay();
         BeaconProofs.StateRootProof memory st = _state(vm.getBlockTimestamp());
         BeaconProofs.ValidatorProof memory sp = _sourceProof(_exitingSource(withdrawableEpoch));
         vm.expectRevert(NativeStakeMarket.NotFailed.selector);
@@ -547,8 +581,22 @@ contract SettlementTest is MarketBase {
     function test_proveNotAccepted_revertsOnPreFillState() public {
         BeaconProofs.StateRootProof memory st = _state(vm.getBlockTimestamp() - 12);
         BeaconProofs.ValidatorProof memory sp = _sourceProof(_sourceValidator());
-        vm.expectRevert(NativeStakeMarket.ProofBeforeFill.selector);
+        vm.expectRevert(NativeStakeMarket.RequestMayBeQueued.selector);
         market.proveNotAccepted(tradeId, st, sp);
+    }
+
+    /// A state right after the fill may predate the request leaving the EIP-7251 queue: refunding on it
+    /// would let a buyer who queued junk requests ahead of the fill keep both the refund and the stake.
+    function test_proveNotAccepted_revertsWhileRequestMayBeQueued() public {
+        uint256 limit = market.getTrade(tradeId).filledAt + market.REQUEST_DEQUEUE_DELAY();
+        vm.warp(limit + 12);
+        BeaconProofs.ValidatorProof memory sp = _sourceProof(_sourceValidator());
+        BeaconProofs.StateRootProof memory early = _state(vm.getBlockTimestamp() - 12 - 24);
+        vm.expectRevert(NativeStakeMarket.RequestMayBeQueued.selector);
+        market.proveNotAccepted(tradeId, early, sp);
+
+        market.proveNotAccepted(tradeId, _state(limit + 12), sp);
+        assertEq(uint8(_status()), uint8(NativeStakeMarket.Status.Failed));
     }
 
     function test_proveFailed_slashedAfterAcceptance() public {
@@ -606,5 +654,28 @@ contract SettlementTest is MarketBase {
         vm.prank(buyer);
         uint256 id2 = market.fill{value: 1}(o, sig, targetPubkey, p, buyer);
         assertEq(id2, 2);
+    }
+}
+
+contract ConstructorTest is MarketBase {
+    IBeaconOracle oracle;
+
+    function _deploy(uint256 acceptWindow) internal {
+        new NativeStakeMarket(
+            IERC20(address(weth)), oracle, IStakePriceOracle(address(0)), MAINNET_GENESIS, 1 hours, acceptWindow
+        );
+    }
+
+    /// The accept window must outlast the dequeue delay and end while acceptance is still provable.
+    function test_acceptWindowBounds() public {
+        uint256 delay = market.REQUEST_DEQUEUE_DELAY();
+        uint256 max = market.MAX_ACCEPT_WINDOW();
+        oracle = market.beaconOracle();
+        vm.expectRevert(NativeStakeMarket.InvalidAcceptWindow.selector);
+        _deploy(delay);
+        vm.expectRevert(NativeStakeMarket.InvalidAcceptWindow.selector);
+        _deploy(max + 1);
+        _deploy(delay + 1);
+        _deploy(max);
     }
 }

@@ -80,6 +80,21 @@ contract BeaconProofsTest is Test {
         harness.verifyStateRoot(keccak256("wrong"), p);
     }
 
+    function test_stateRoot_bindsHeaderSlot() public {
+        BeaconProofs.StateRootProof memory p = Fixture.stateRootProof();
+        assertEq(p.slot, vm.parseJsonUint(Fixture.json(), ".beaconSlot"));
+        p.slot -= 32; // claim an older epoch
+        vm.expectRevert(BeaconProofs.InvalidProof.selector);
+        harness.verifyStateRoot(Fixture.beaconBlockRoot(), p);
+    }
+
+    function test_stateRoot_bindsProposerIndex() public {
+        BeaconProofs.StateRootProof memory p = Fixture.stateRootProof();
+        p.proposerIndex += 1;
+        vm.expectRevert(BeaconProofs.InvalidProof.selector);
+        harness.verifyStateRoot(Fixture.beaconBlockRoot(), p);
+    }
+
     function test_verifiedStateRoot_via4788() public {
         vm.etch(oracle.BEACON_ROOTS(), address(new MockBeaconRoots(Fixture.beaconBlockRoot())).code);
         assertEq(oracle.verifiedStateRoot(Fixture.stateRootProof()), stateRoot);

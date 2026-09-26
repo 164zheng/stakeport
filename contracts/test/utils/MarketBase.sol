@@ -120,6 +120,8 @@ abstract contract MarketBase is Test {
     function _state(uint256 timestamp) internal pure returns (BeaconProofs.StateRootProof memory) {
         return BeaconProofs.StateRootProof({
             timestamp: uint64(timestamp),
+            slot: uint64((timestamp - MAINNET_GENESIS) / 12),
+            proposerIndex: 0,
             stateRoot: keccak256(abi.encode(timestamp)),
             branch: new bytes32[](0)
         });

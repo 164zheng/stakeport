@@ -19,7 +19,7 @@ contract DeployCore is Script {
     function run() external {
         uint256 genesisTime = vm.envUint("GENESIS_TIME");
         uint256 maxProofAge = vm.envOr("MAX_PROOF_AGE", uint256(1 hours));
-        uint256 acceptWindow = vm.envOr("ACCEPT_WINDOW", uint256(1 days));
+        uint256 acceptWindow = vm.envOr("ACCEPT_WINDOW", uint256(2 days));
         address weth = vm.envOr("WETH", address(0));
         address attester = vm.envOr("WORLD_ATTESTER", address(0));
         string memory name = vm.envOr("DEPLOYMENT_NAME", string("hoodi"));

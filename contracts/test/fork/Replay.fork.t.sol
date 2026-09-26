@@ -123,9 +123,12 @@ contract ReplayForkTest is Test {
         uint256 id = _fill();
         _injectPostRoot();
         (BeaconProofs.StateRootProof memory st,, BeaconProofs.ValidatorProof memory src) = _accepted();
-        // the buyer cannot claim the request was ignored: the real source exit is initiated
-        vm.expectRevert(NativeStakeMarket.NotFailed.selector);
+        // the buyer cannot claim the request was ignored: a state two slots after the fill is too early
+        // (the request could still sit in the EIP-7251 queue) ...
+        vm.expectRevert(NativeStakeMarket.RequestMayBeQueued.selector);
         market.proveNotAccepted(id, st, src);
+        // ... and the real source exit is initiated anyway
+        assertTrue(src.validator.exitEpoch != BeaconProofs.FAR_FUTURE_EPOCH);
     }
 
     function test_realState_rejectsWrongTarget() public {

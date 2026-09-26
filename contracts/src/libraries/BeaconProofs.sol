@@ -23,6 +23,9 @@ library BeaconProofs {
     struct StateRootProof {
         /// @dev EIP-4788 key: timestamp of the execution block whose parent beacon block root is proven.
         uint64 timestamp;
+        /// @dev BeaconBlockHeader.slot, which equals BeaconState.slot of the proven (post-block) state.
+        uint64 slot;
+        uint64 proposerIndex;
         bytes32 stateRoot;
         bytes32[] branch;
     }
@@ -71,8 +74,13 @@ library BeaconProofs {
     // Verification
     // ---------------------------------------------------------------------------------------------
 
+    /// @dev Proves state_root (gindex 11) and, through the same branch, the header slot: the second
+    /// sibling on the path is node 4 = hash(slot, proposer_index).
     function verifyStateRoot(bytes32 blockRoot, StateRootProof calldata p) internal pure {
         _verify(p.stateRoot, p.branch, STATE_ROOT_GINDEX, blockRoot);
+        if (p.branch[1] != sha256(abi.encodePacked(toLittleEndian(p.slot), toLittleEndian(p.proposerIndex)))) {
+            revert InvalidProof();
+        }
     }
 
     function verifySlot(bytes32 stateRoot, SlotProof calldata p) internal pure {
