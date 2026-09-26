@@ -51,6 +51,25 @@ the seller cheats (every path ends in a proof-based refund).
 | 2:45–3:10 | `/bids`: *+1 hour* a few times, then *Match* | "Buyers can also post standing bids with 1inch Aqua. Funds stay in their wallet. A SwapVM Dutch auction raises the offer from 99 to 101% of face value until it crosses a listing, and the match pulls exactly the payment." |
 | 3:10–3:25 | `/`: Verified Market listing, then `/portfolio` | "Sellers who must avoid sanctioned counterparties can require a World ID document credential, enforced onchain. With StakePort, native stake becomes a liquid, trustless asset without leaving Ethereum's consensus layer." |
 
+## Video script without `/demo` (~3:40, page by page)
+
+Before recording: restart the stack and pre-list #205611 (plain) and #205612 (Verified Market) at fair value from
+`/sell`. Record with a buyer that has no World ID attestation.
+
+| Time | Screen / action | Say |
+|---|---|---|
+| 0:00–0:15 | `/`, page header | "Hi, I'm Hiroshi. This is StakePort, a marketplace where Ethereum validators sell their active stake directly to other validators. The stake moves on the consensus layer, and the payment is released only when beacon-chain proofs show it arrived." |
+| 0:15–0:35 | `/`, queue panel | "Why would anyone buy stake? Right now, new ETH waits about 29 days in the entry queue, earning nothing. Meanwhile, validators who want out have no way to hand their active stake to someone who wants in. StakePort connects them: no LST, no custodian, no key transfer." |
+| 0:35–0:50 | `/`, fair value card | "Because bought stake starts earning 26 days sooner than a new deposit, a buyer can rationally pay a premium, up to their break-even. Here that's +0.18%, computed from the real beacon-state queues and Lido's APR." |
+| 0:50–1:15 | *Acting as: Seller* → **Sell**: pick #2102426 (real mainnet replay), show Delegate *active*, *Use it*, *List validator #2102426* | "Now I'm the seller, a real mainnet validator on a mainnet fork. Its withdrawal address is delegated via EIP-7702 to our contract, which can only trigger a consolidation for an order the seller listed, and only after the payment is escrowed. I list it at fair value." |
+| 1:15–1:50 | *Acting as: Buyer* → **Market** → #2102426 *Buy stake*: pick the *real mainnet target*, *USDC via Uniswap v4*, *Buy 32 ETH of native stake* | "Now the buyer, who already runs a compounding validator and wants more stake. They pay in USDC with a single Uniswap v4 swap. Our hook routes the USDC through the canonical ETH/USDC pool, escrows the WETH, verifies SSZ proofs of both validators against an EIP-4788 beacon root, and submits an EIP-7251 consolidation from the seller's address, all in one transaction." |
+| 1:50–2:10 | trade page (opens after the buy): *Relay beacon proof* | "This is the trade page. Checkpoint 1 proves the consensus layer accepted the request. And this isn't simulated: it's the real mainnet beacon state from the block where this exact consolidation happened." |
+| 2:10–2:25 | *Fast-forward to delivery & relay proof* | "The stake arrives about a day later, so we fast-forward. The contract checks the source was drained without being slashed, and releases the payment to the seller. If anything fails, a proof refunds the buyer." |
+| 2:25–2:45 | terminal: `pnpm -s hoodi-check` | "It's also deployed on Hoodi. This takes a consolidation waiting in today's Hoodi beacon state and proves it against our deployed oracle, the same check as checkpoint 1. Forged claims revert." |
+| 2:45–3:15 | **Bids**: *Dutch auction (SwapVM)*, *Ship bid to Aqua*, *⏩ +1 hour (fork clock)* until #205611 shows under *Matchable now*, *Match* | "Buyers can also post standing bids with 1inch Aqua. Funds stay in their wallet. A SwapVM Dutch auction raises the offer from 99 to 101% of face value over time. Once it crosses a listing, anyone can match it, and Aqua pulls exactly the payment." |
+| 3:15–3:30 | **Market** → #205612 (World ID badge) → *Try to buy without verification* | "Some sellers must avoid counterparties in sanctioned jurisdictions, so they can require a World ID document credential. A buyer without it is rejected onchain, not just in the UI." |
+| 3:30–3:40 | **Portfolio** | "Finally, a dashboard tells operators what to do next. With StakePort, native stake becomes a liquid, trustless asset without leaving Ethereum's consensus layer." |
+
 ## Recording the demo video (2–4 min, ≥720p, own voice, no speed-up)
 
 Record the table above with screen capture (QuickTime → New Screen Recording). Cut the waits between clicks instead
