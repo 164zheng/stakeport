@@ -1,7 +1,7 @@
 # 4-minute demo script
 
 Setup (before judging): `./scripts/dev.sh`, wait for "frontend: http://localhost:3000", open `/demo` in one tab and
-`/` in another. Keep World App ready for the optional World ID segment (each restart uses a fresh World ID action, so
+`/` in another, and keep a terminal beside the browser running `cd proof-generator && pnpm -s tx --watch`. Keep World App ready for the optional World ID segment (each restart uses a fresh World ID action, so
 re-verify after restarting). Restart `dev.sh` between runs.
 
 To show MetaMask signing instead of impersonated personas: `CHAIN_ID=31337 ./scripts/dev.sh`, connect the wallet
@@ -11,6 +11,7 @@ EIP-7251 request, StakePort events):
 
 ```bash
 cd proof-generator
+pnpm -s tx --watch         # live: prints every new StakePort transaction as you click through the UI
 pnpm -s tx --last          # every transaction of the latest trade: fill, checkpoint 1, checkpoint 2 + payout
 pnpm -s tx --trade 3       # a specific trade
 pnpm -s tx 0x<txhash>      # any transaction (e.g. an Aqua bid match: WETH pulled from the buyer's wallet via Aqua)

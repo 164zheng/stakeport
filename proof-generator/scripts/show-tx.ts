@@ -3,6 +3,7 @@
 //   node scripts/show-tx.ts <txhash>        one transaction
 //   node scripts/show-tx.ts --trade <id>    every transaction of a StakePort trade (fill, checkpoints, payout)
 //   node scripts/show-tx.ts --last          the latest trade
+//   node scripts/show-tx.ts --watch         live: print every new transaction that touches StakePort
 //
 // Decodes the call, token transfers (with amounts and labelled addresses), 1inch Aqua pulls, Uniswap v4
 // swaps, the EIP-7251 consolidation request and StakePort events.
@@ -247,8 +248,26 @@ if (arg === "--trade" || arg === "--last") {
   if (t.accepted) await show(t.accepted.tx, `Trade #${t.tradeId} · checkpoint 1`);
   if (t.delivered) await show(t.delivered.tx, `Trade #${t.tradeId} · checkpoint 2 and payout`);
   if (t.failed) await show(t.failed.tx, `Trade #${t.tradeId} · refund`);
+} else if (arg === "--watch") {
+  // every labelled contract plus any address that emits into them (e.g. the 7702-delegated seller)
+  const watched = new Set([...labels.keys()]);
+  const relevant = (to: string | null, logs: { address: string }[]) =>
+    (to && watched.has(to.toLowerCase())) || logs.some((l) => watched.has(l.address.toLowerCase()));
+  let next = (await pub.getBlockNumber()) + 1n;
+  console.log(`${C.dim}watching new blocks from ${next} (Ctrl-C to stop)…${C.r}`);
+  for (;;) {
+    const head = await pub.getBlockNumber();
+    for (; next <= head; next++) {
+      const block = await pub.getBlock({ blockNumber: next, includeTransactions: true });
+      for (const tx of block.transactions) {
+        const rc = await pub.getTransactionReceipt({ hash: tx.hash });
+        if (relevant(tx.to, rc.logs)) await show(tx.hash, `Block ${next}`);
+      }
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
 } else if (arg?.startsWith("0x")) {
   await show(arg as Hex);
 } else {
-  console.log("usage: node scripts/show-tx.ts <txhash> | --trade <id> | --last");
+  console.log("usage: node scripts/show-tx.ts <txhash> | --trade <id> | --last | --watch");
 }
