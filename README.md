@@ -111,6 +111,19 @@ Verified Market) → **Market** → **Buy** (WETH or USDC via Uniswap v4) or **B
 
 CLI version of the same flow: `cd proof-generator && node scripts/e2e.ts` (with the stack running).
 
+### With a browser wallet (MetaMask) on the fork
+
+```bash
+CHAIN_ID=31337 ./scripts/dev.sh      # MetaMask cannot map chain id 1 to a local RPC
+```
+
+1. Add a network in MetaMask: RPC `http://127.0.0.1:8545`, chain id `31337`.
+2. **Connect wallet**, then **+100 ETH** (fork faucet). On the fork the wallet plays the **buyer**; the seller stays a
+   real validator operator that the fork impersonates.
+3. As **Seller**, list a validator; as **Buyer**, open it, add a 0x02 target index under *Your validators* (e.g. `0`)
+   and buy with ETH: MetaMask signs `fillWithEth` and the checkpoint relays.
+4. After restarting the fork, clear MetaMask's activity and nonce data (Settings → Advanced).
+
 ### What is real and what is simulated
 
 - **Real:** mainnet beacon states (Fulu), validators, fill-time SSZ proofs, the EIP-4788 root they verify

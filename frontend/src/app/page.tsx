@@ -6,12 +6,14 @@ import { QueuePanel } from "@/components/QueuePanel";
 import { Badge, Card, ErrorBox, Mono } from "@/components/ui";
 import { api, type ValidatorInfo } from "@/lib/api";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
-import { isVerifiedMarket, listings, quote, type Listing } from "@/lib/market";
+import { isVerifiedMarket, listings, quote, trades, type Listing } from "@/lib/market";
 
 export default function MarketPage() {
   const [items, setItems] = useState<Listing[]>();
   const [validators, setValidators] = useState<Record<number, ValidatorInfo>>({});
   const [quotes, setQuotes] = useState<Record<string, bigint>>({});
+  /** stake fixed at fill time, per source validator (its live balance is 0 once delivered) */
+  const [traded, setTraded] = useState<Record<number, bigint>>({});
   const [error, setError] = useState<string>();
 
   useEffect(() => {
@@ -30,6 +32,8 @@ export default function MarketPage() {
             if (v) q[l.hash] = await quote(l.order, BigInt(v.effectiveBalanceGwei)).catch(() => 0n);
           }
           setQuotes(q);
+          const ts = await trades().catch(() => []);
+          setTraded(Object.fromEntries(ts.reverse().map((t) => [Number(t.sourceIndex), t.amountGwei])));
         }
       })
       .catch((e) => setError(e.message));
@@ -79,7 +83,9 @@ export default function MarketPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items?.map((l) => {
             const v = validators[Number(l.order.sourceIndex)];
-            const amount = v ? BigInt(v.effectiveBalanceGwei) * 10n ** 9n : 0n;
+            const tradedGwei = l.state !== "open" ? traded[Number(l.order.sourceIndex)] : undefined;
+            const stakeGwei = tradedGwei ?? (v ? BigInt(v.effectiveBalanceGwei) : undefined);
+            const amount = stakeGwei !== undefined ? stakeGwei * 10n ** 9n : 0n;
             const fixed = l.order.priceMode === 0;
             const livePrice = fixed ? l.order.price : quotes[l.hash];
             const discount = livePrice && amount > 0n ? 1 - Number(livePrice) / Number(amount) : undefined;
@@ -100,7 +106,7 @@ export default function MarketPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <div className="text-xs text-muted">Stake</div>
-                    <div className="text-xl font-semibold">{v ? gweiToEth(v.effectiveBalanceGwei) : "…"} ETH</div>
+                    <div className="text-xl font-semibold">{stakeGwei !== undefined ? gweiToEth(stakeGwei) : "…"} ETH</div>
                   </div>
                   <div>
                     <div className="text-xs text-muted">Price</div>

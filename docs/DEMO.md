@@ -1,7 +1,13 @@
 # 4-minute demo script
 
 Setup (before judging): `./scripts/dev.sh`, wait for "frontend: http://localhost:3000", open `/demo` in one tab and
-`/` in another. Keep World App ready for the optional World ID segment. Restart `dev.sh` between runs.
+`/` in another. Keep World App ready for the optional World ID segment (each restart uses a fresh World ID action, so
+re-verify after restarting). Restart `dev.sh` between runs.
+
+To show MetaMask signing instead of impersonated personas: `CHAIN_ID=31337 ./scripts/dev.sh`, connect the wallet
+(it plays the buyer), press **+100 ETH**, and buy with ETH (see the README section "With a browser wallet").
+For the 1inch judges, show the Aqua match transaction in a terminal: `cast receipt <tx>` (WETH `Transfer` from the
+buyer's wallet to the app via Aqua `Pulled`, then app → escrow).
 
 | Time | Screen | Say |
 |---|---|---|
