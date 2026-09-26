@@ -241,10 +241,21 @@ validators near the 2048 ETH cap, idle WETH, listings about to expire). MultiBaa
 
 ## AI usage
 
-Claude Code (Anthropic) was used as a coding assistant throughout the hackathon: contracts, tests, the proof
-generator, the frontend and documentation were written with its help, under the team's direction and review.
-Planning notes are in [`docs/PLAN.md`](docs/PLAN.md). _TODO (team): refine this section with the parts each
-member designed or wrote._
+Claude Code (Anthropic) was used as a coding assistant. Most of the code (contracts, tests, proof generator,
+frontend) and the documentation were written with it, under the direction and review of the team.
+
+What the team (Hiroshi Tei) did:
+- Product and design decisions: the native-stake DvP concept, the build order, which partner integrations to
+  build and how (Uniswap v4 hook instead of a plain swap integration, Aqua standing bids, native ETH payment).
+- Pricing model: the insight that active stake should trade at a premium equal to the buyer's entry-queue
+  break-even, and the decision to keep only the buyer-side model.
+- World ID: Developer Portal app and RP setup, end-to-end verification with a real World App and My Number Card,
+  and the debugging that found that the passport preset fell back to legacy Orb proofs and that Japanese users
+  hold an `mnc` credential.
+- Reviewing and testing every feature in the running demo, and the demo and pitch.
+
+AI-assisted files: everything under `contracts/src`, `contracts/test`, `contracts/script`, `proof-generator/`,
+`frontend/src`, `scripts/` and `docs/`. Planning notes: [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Team
 
