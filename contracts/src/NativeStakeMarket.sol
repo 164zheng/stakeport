@@ -13,6 +13,10 @@ import {IStakePriceOracle} from "./interfaces/IStakePriceOracle.sol";
 import {BeaconProofs} from "./libraries/BeaconProofs.sol";
 import {Stake7702Delegate} from "./Stake7702Delegate.sol";
 
+interface IWETH {
+    function deposit() external payable;
+}
+
 /// @title NativeStakeMarket
 /// @notice Delivery-versus-payment for native validator stake.
 ///
@@ -158,6 +162,7 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
     error EthRefundFailed();
     error NotSeller();
     error BuyerNotEligible(address buyer);
+    error InsufficientEth(uint256 value, uint256 payment);
 
     constructor(
         IERC20 weth_,
@@ -224,6 +229,30 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
         FillProofs calldata proofs,
         address buyer
     ) external payable nonReentrant returns (uint256 tradeId) {
+        return _fill(order, signature, targetPubkey, proofs, buyer, false);
+    }
+
+    /// @notice Same as `fill`, paid in native ETH in a single transaction (no WETH approval).
+    /// @dev `msg.value` covers the payment (wrapped into WETH escrow) plus the EIP-7251 fee; any excess
+    /// is returned to `msg.sender`.
+    function fillWithEth(
+        StakeOrder calldata order,
+        bytes calldata signature,
+        bytes calldata targetPubkey,
+        FillProofs calldata proofs,
+        address buyer
+    ) external payable nonReentrant returns (uint256 tradeId) {
+        return _fill(order, signature, targetPubkey, proofs, buyer, true);
+    }
+
+    function _fill(
+        StakeOrder calldata order,
+        bytes calldata signature,
+        bytes calldata targetPubkey,
+        FillProofs calldata proofs,
+        address buyer,
+        bool payInEth
+    ) internal returns (uint256 tradeId) {
         bytes32 orderHash = _checkOrder(order, signature);
         IEligibilityPolicy policy = policyOf[orderHash];
         if (address(policy) != address(0) && !policy.isEligible(buyer)) revert BuyerNotEligible(buyer);
@@ -249,10 +278,17 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
             targetPubkeyHash: keccak256(targetPubkey)
         });
 
-        weth.safeTransferFrom(msg.sender, address(this), payment);
+        uint256 feeValue = msg.value;
+        if (payInEth) {
+            if (msg.value < payment) revert InsufficientEth(msg.value, payment);
+            IWETH(address(weth)).deposit{value: payment}();
+            feeValue = msg.value - payment;
+        } else {
+            weth.safeTransferFrom(msg.sender, address(this), payment);
+        }
 
-        uint256 balanceBefore = address(this).balance - msg.value;
-        Stake7702Delegate(payable(order.seller)).requestConsolidation{value: msg.value}(
+        uint256 balanceBefore = address(this).balance - feeValue;
+        Stake7702Delegate(payable(order.seller)).requestConsolidation{value: feeValue}(
             order.sourcePubkey, targetPubkey
         );
         uint256 excess = address(this).balance - balanceBefore;
