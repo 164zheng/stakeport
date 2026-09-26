@@ -8,6 +8,7 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IBeaconOracle} from "./interfaces/IBeaconOracle.sol";
+import {IEligibilityPolicy} from "./interfaces/IEligibilityPolicy.sol";
 import {IStakePriceOracle} from "./interfaces/IStakePriceOracle.sol";
 import {BeaconProofs} from "./libraries/BeaconProofs.sol";
 import {Stake7702Delegate} from "./Stake7702Delegate.sol";
@@ -112,6 +113,8 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
     mapping(uint64 => uint256) public activeTradeBySource;
     /// @notice Orders listed onchain by the seller (alternative to an off-chain signature).
     mapping(bytes32 => bool) public listed;
+    /// @notice Optional buyer eligibility policy per listed order (e.g. World ID Verified Market).
+    mapping(bytes32 => IEligibilityPolicy) public policyOf;
 
     // ---------------------------------------------------------------------------------------------
     // Events / errors
@@ -131,6 +134,7 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
     event TradeFailed(uint256 indexed tradeId, uint256 refund);
     event OrderCancelled(address indexed seller, uint256 nonce);
     event OrderListed(bytes32 indexed orderHash, address indexed seller, uint64 indexed sourceIndex, StakeOrder order);
+    event OrderPolicySet(bytes32 indexed orderHash, IEligibilityPolicy policy);
 
     error OrderExpired();
     error NonceAlreadyUsed();
@@ -153,6 +157,7 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
     error AcceptWindowOpen();
     error EthRefundFailed();
     error NotSeller();
+    error BuyerNotEligible(address buyer);
 
     constructor(
         IERC20 weth_,
@@ -177,6 +182,20 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
 
     /// @notice Lists an order onchain; it can then be filled with an empty signature.
     function listOrder(StakeOrder calldata order) external returns (bytes32 orderHash) {
+        orderHash = _list(order);
+    }
+
+    /// @notice Lists an order that only buyers accepted by `policy` can fill.
+    function listOrderWithPolicy(StakeOrder calldata order, IEligibilityPolicy policy)
+        external
+        returns (bytes32 orderHash)
+    {
+        orderHash = _list(order);
+        policyOf[orderHash] = policy;
+        emit OrderPolicySet(orderHash, policy);
+    }
+
+    function _list(StakeOrder calldata order) internal returns (bytes32 orderHash) {
         if (msg.sender != order.seller) revert NotSeller();
         orderHash = hashOrder(order);
         listed[orderHash] = true;
@@ -205,7 +224,9 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
         FillProofs calldata proofs,
         address buyer
     ) external payable nonReentrant returns (uint256 tradeId) {
-        _checkOrder(order, signature);
+        bytes32 orderHash = _checkOrder(order, signature);
+        IEligibilityPolicy policy = policyOf[orderHash];
+        if (address(policy) != address(0) && !policy.isEligible(buyer)) revert BuyerNotEligible(buyer);
         (uint64 amountGwei, uint64 targetIndex) = _checkValidators(order, targetPubkey, proofs);
 
         uint256 payment = quote(order, amountGwei);
@@ -371,10 +392,14 @@ contract NativeStakeMarket is EIP712, ReentrancyGuard {
     // Internal
     // ---------------------------------------------------------------------------------------------
 
-    function _checkOrder(StakeOrder calldata order, bytes calldata signature) internal view {
+    function _checkOrder(StakeOrder calldata order, bytes calldata signature)
+        internal
+        view
+        returns (bytes32 orderHash)
+    {
         if (block.timestamp > order.expiry) revert OrderExpired();
         if (nonceUsed[order.seller][order.nonce]) revert NonceAlreadyUsed();
-        bytes32 orderHash = hashOrder(order);
+        orderHash = hashOrder(order);
         if (signature.length == 0) {
             if (!listed[orderHash]) revert InvalidSignature();
         } else if (ECDSA.recover(orderHash, signature) != order.seller) {
