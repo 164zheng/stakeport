@@ -218,6 +218,26 @@ export async function fillWithWeth(listing: Listing, buyer: Address, targetIndex
   return next - 1n;
 }
 
+/** Buys with native ETH in one transaction: the market wraps the payment into WETH escrow. */
+export async function fillWithEth(listing: Listing, buyer: Address, targetIndex: number, onStep?: (s: string) => void) {
+  const d = await getDeployment();
+  await fundPersona(buyer);
+  onStep?.("Generating beacon state proofs");
+  const proofs = await fillProofs(Number(listing.order.sourceIndex), targetIndex);
+  const payment = await quote(listing.order, BigInt((proofs.source.validator as unknown as { effectiveBalance: bigint }).effectiveBalance));
+  onStep?.("One transaction: escrow ETH as WETH and submit the EIP-7251 consolidation");
+  await write({
+    account: buyer,
+    address: d.market,
+    abi: nativeStakeMarketAbi,
+    functionName: "fillWithEth",
+    args: [listing.order, "0x", proofs.target.validator.pubkey, proofs, buyer],
+    value: payment + parseEther("0.01"), // unused fee is refunded
+  });
+  const next = (await publicClient.readContract({ address: d.market, abi: nativeStakeMarketAbi, functionName: "nextTradeId" })) as bigint;
+  return next - 1n;
+}
+
 export async function relayAccepted(trade: Trade, from: Address) {
   const d = await getDeployment();
   const p = await api.accepted(trade.id, Number(trade.sourceIndex), Number(trade.targetIndex));

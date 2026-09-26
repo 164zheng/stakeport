@@ -11,7 +11,7 @@ import { eth, short } from "@/lib/format";
 import {
   enableDelegation,
   fillProofs,
-  fillWithWeth,
+  fillWithEth,
   getTrade,
   listOrder,
   listings,
@@ -119,7 +119,7 @@ export default function DemoPage() {
       add(`Listed at ${price.toFixed(4)} WETH (fair value from the entry-queue premium)`);
     });
 
-  const doBuy = (route: "weth" | "usdc") =>
+  const doBuy = (route: "eth" | "usdc") =>
     run(async () => {
       if (!listing || !buyer || !replay) throw new Error("list first");
       setRole("buyer");
@@ -127,7 +127,7 @@ export default function DemoPage() {
       const id =
         route === "usdc"
           ? (await buyWithUsdc(listing, buyer, replay.target, onStep)).tradeId
-          : await fillWithWeth(listing, buyer, replay.target, onStep);
+          : await fillWithEth(listing, buyer, replay.target, onStep);
       setTrade(await getTrade(id));
       add(`Trade #${id}: payment escrowed, consolidation ${replay.source} → ${replay.target} requested`);
     });
@@ -159,8 +159,8 @@ export default function DemoPage() {
     ),
     1: (
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => doBuy("weth")} loading={busy}>
-          Buy with ETH (WETH)
+        <Button onClick={() => doBuy("eth")} loading={busy}>
+          Buy with ETH (one transaction)
         </Button>
         <Button variant="ghost" onClick={() => doBuy("usdc")} loading={busy}>
           Buy with USDC via Uniswap v4

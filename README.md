@@ -21,7 +21,7 @@ Built at ETHGlobal Tokyo 2026 (Classic Track).
 | Programmable withdrawal account | **EIP-7702** delegate on the seller's withdrawal EOA calls the consolidation predeploy, so `msg.sender` is the seller |
 | Trustless verification | **EIP-4788** beacon block roots + SSZ Merkle proofs of validators, balances and `pending_consolidations` (Fulu) |
 | Price discovery | **Uniswap** wstETH/WETH TWAP: orders can be priced relative to the LST market |
-| Payment | WETH, or USDC in **one Uniswap v4 swap** through the StakePort hook, or a self-custodial **1inch Aqua** standing bid |
+| Payment | **ETH in one transaction** (`fillWithEth`), WETH, USDC in **one Uniswap v4 swap** through the StakePort hook, or a self-custodial **1inch Aqua** standing bid |
 | Counterparty policy | Optional **Verified Market** listings: buyer must hold a **World ID NFC document** credential (passport or My Number Card), enforced onchain at fill |
 
 No LST, no custodian, no validator key transfer.
@@ -122,14 +122,14 @@ CLI version of the same flow: `cd proof-generator && node scripts/e2e.ts` (with 
 ## Tests
 
 ```bash
-cd contracts && forge test                 # 93 unit tests; fork tests are skipped without MAINNET_RPC_URL
-set -a; . ../.env; set +a; forge test      # + 25 mainnet fork tests (118 total)
+cd contracts && forge test                 # 97 unit tests; fork tests are skipped without MAINNET_RPC_URL
+set -a; . ../.env; set +a; forge test      # + 26 mainnet fork tests (123 total)
 cd proof-generator && pnpm test            # gindex parity with Solidity, proof/ABI checks, queue math
 ```
 
 - `BeaconProofs.t.sol`: SSZ verification against **real mainnet proofs** (validators, balances, pending
   consolidation, slot), tampering and malformed-proof cases.
-- `NativeStakeMarket.t.sol`: fill checks (signature, delegation, every validator condition, capacity, double
+- `NativeStakeMarket.t.sol`: fill checks, native ETH fills (wrap into escrow, fee refund), (signature, delegation, every validator condition, capacity, double
   sale, fee), LST-relative pricing (fuzz), both checkpoints and every refund path.
 - `WorldIdEligibility.t.sol`: attestations (attester signature, credential, expiry, one passport = one
   account), Verified Market listings reject unverified buyers and check the buyer, not the payer.

@@ -10,11 +10,11 @@ import { eth, gweiToEth, pct, short } from "@/lib/format";
 import { WorldGate } from "@/components/WorldGate";
 import { useQueues } from "@/components/QueuePanel";
 import { fairValue } from "@/lib/queues";
-import { fillWithWeth, isVerifiedMarket, listings, quote, type Listing } from "@/lib/market";
+import { fillWithEth, fillWithWeth, isVerifiedMarket, listings, quote, type Listing } from "@/lib/market";
 import { buyWithUsdc, stakeReference, usdcQuoteForListing } from "@/lib/uniswap";
 import { usePersona } from "@/lib/persona";
 
-type PayWith = "weth" | "usdc";
+type PayWith = "eth" | "weth" | "usdc";
 
 export default function BuyPage({ params }: { params: Promise<{ hash: string }> }) {
   const { hash } = use(params);
@@ -28,7 +28,7 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
   const [targets, setTargets] = useState<ValidatorInfo[]>();
   const [target, setTarget] = useState<number>();
   const [payment, setPayment] = useState<bigint>();
-  const [payWith, setPayWith] = useState<PayWith>("weth");
+  const [payWith, setPayWith] = useState<PayWith>("eth");
   const [deployment, setDeployment] = useState<Deployment>();
   const [usdcIn, setUsdcIn] = useState<bigint>();
   const [reference, setReference] = useState<bigint>();
@@ -77,7 +77,9 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
       const id =
         payWith === "usdc"
           ? (await buyWithUsdc(listing, buyer, target, onStep)).tradeId
-          : await fillWithWeth(listing, buyer, target, onStep);
+          : payWith === "eth"
+            ? await fillWithEth(listing, buyer, target, onStep)
+            : await fillWithWeth(listing, buyer, target, onStep);
       router.push(`/trades/${id}`);
     } catch (e) {
       const msg = errorMessage(e);
@@ -191,13 +193,20 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
 
       <Card>
         <h2 className="font-semibold">Pay with</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <button
+            onClick={() => setPayWith("eth")}
+            className={`rounded-xl border px-4 py-3 text-left text-sm ${payWith === "eth" ? "border-accent" : "border-line"}`}
+          >
+            <div className="font-semibold">ETH</div>
+            <div className="text-xs text-muted">one transaction, no approval</div>
+          </button>
           <button
             onClick={() => setPayWith("weth")}
             className={`rounded-xl border px-4 py-3 text-left text-sm ${payWith === "weth" ? "border-accent" : "border-line"}`}
           >
             <div className="font-semibold">WETH</div>
-            <div className="text-xs text-muted">ETH is wrapped automatically</div>
+            <div className="text-xs text-muted">approve + fill</div>
           </button>
           <button
             onClick={() => setPayWith("usdc")}
