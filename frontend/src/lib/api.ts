@@ -28,6 +28,9 @@ export interface ServiceInfo {
   currentEpoch: number;
   genesisTime: number;
   personas: { seller: Persona; buyer: Persona };
+  demo?: string;
+  /** Real mainnet consolidation replayed by the demo: checkpoint 1 for this pair uses real beacon data. */
+  replay?: { source: number; target: number; tx: string; block: number; postSlot: number } | null;
   simulated: { kind: string; tradeId?: string; slot: number; root: string; timestamp: string }[];
 }
 

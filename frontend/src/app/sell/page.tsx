@@ -128,7 +128,14 @@ export default function SellPage() {
                       <td className="py-2">
                         <input type="radio" readOnly checked={selected === x.index} disabled={!sellable} />
                       </td>
-                      <td>#{x.index}</td>
+                      <td>
+                        #{x.index}
+                        {info?.replay?.source === x.index && (
+                          <span className="ml-2 rounded-full bg-good/15 px-2 py-0.5 text-xs text-good" title={`mainnet tx ${info.replay.tx}`}>
+                            real mainnet replay
+                          </span>
+                        )}
+                      </td>
                       <td>
                         <Mono>{x.credentials}</Mono>
                       </td>

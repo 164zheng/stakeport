@@ -20,6 +20,7 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
   const { hash } = use(params);
   const router = useRouter();
   const { info } = usePersona();
+  const replay = info?.replay;
   const buyer = info?.personas.buyer.address;
 
   const [listing, setListing] = useState<Listing>();
@@ -45,11 +46,14 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
       const l = ls.find((x) => x.hash === hash);
       if (!l) throw new Error("listing not found");
       setListing(l);
-      const [[src], tgts] = await Promise.all([
+      const isReplay = replay && Number(l.order.sourceIndex) === replay.source;
+      const [[src], own, replayTarget] = await Promise.all([
         api.validators({ indices: [Number(l.order.sourceIndex)] }),
         api.validators({ address: buyer }),
+        isReplay ? api.validators({ indices: [replay.target] }) : Promise.resolve([]),
       ]);
       setSource(src);
+      const tgts = [...replayTarget, ...own];
       const eligible = tgts.filter((t) => t.credentials === "0x02" && t.status === "active");
       setTargets(eligible);
       setTarget(eligible.find((t) => t.effectiveBalanceGwei + src.effectiveBalanceGwei <= 2048e9)?.index);
@@ -61,7 +65,7 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
         setUsdcIn(q.usdcIn);
       }
     })().catch((e) => setError(errorMessage(e)));
-  }, [buyer, hash]);
+  }, [buyer, hash, replay]);
 
   async function onBuy() {
     if (!listing || !buyer || target === undefined) return;
@@ -169,6 +173,11 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
               >
                 <input type="radio" checked={target === x.index} disabled={!fits} onChange={() => setTarget(x.index)} />
                 <span className="font-semibold">#{x.index}</span>
+                {replay && x.index === replay.target && Number(listing?.order.sourceIndex) === replay.source && (
+                  <span className="rounded-full bg-good/15 px-2 py-0.5 text-xs text-good" title={`mainnet tx ${replay.tx}`}>
+                    real mainnet target · checkpoint 1 from real beacon data
+                  </span>
+                )}
                 <Mono>{short(x.pubkey, 6)}</Mono>
                 <span className="ml-auto">
                   {gweiToEth(x.effectiveBalanceGwei)} → {source ? gweiToEth(x.effectiveBalanceGwei + source.effectiveBalanceGwei) : "…"} ETH

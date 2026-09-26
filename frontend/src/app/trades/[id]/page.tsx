@@ -162,7 +162,7 @@ export default function TradePage({ params }: { params: Promise<{ id: string }> 
             {withdrawableAt && s === "Accepted" && now !== undefined && (
               <p>
                 Source becomes withdrawable at epoch {trade.withdrawableEpoch.toString()} (in {duration(withdrawableAt - now)} of chain time).
-                On mainnet the churn queue adds more.
+                This epoch comes from the consolidation queue at acceptance.
               </p>
             )}
             <p>
@@ -187,8 +187,9 @@ export default function TradePage({ params }: { params: Promise<{ id: string }> 
       </Card>
 
       <p className="text-xs text-muted">
-        Fill proofs use a real mainnet beacon state. Checkpoint states are simulated from it (the real wait is 27h+ plus the
-        churn queue) and verified by the same on-chain code path.
+        Fill proofs always use a real mainnet beacon state. For the replayed mainnet request, checkpoint 1 also uses the
+        real beacon state that processed it. Other checkpoints are simulated from the real state (delivery takes days on
+        mainnet) and verified by the same onchain code path; each proof is labelled real or simulated.
       </p>
     </div>
   );
