@@ -8,6 +8,7 @@ import {BeaconOracle} from "../src/BeaconOracle.sol";
 import {NativeStakeMarket} from "../src/NativeStakeMarket.sol";
 import {AquaStakeBidApp} from "../src/aqua/AquaStakeBidApp.sol";
 import {IAqua} from "../src/aqua/IAqua.sol";
+import {WorldIdEligibility} from "../src/world/WorldIdEligibility.sol";
 import {StakePortHook} from "../src/uniswap/StakePortHook.sol";
 import {StakePortSwapRouter} from "../src/uniswap/StakePortSwapRouter.sol";
 import {IUniswapV3PoolOracle, IWstETH, UniswapStakePriceOracle} from "../src/uniswap/UniswapStakePriceOracle.sol";
@@ -44,6 +45,9 @@ contract Deploy is Script {
         U.POOL_MANAGER.initialize(U.stakeKey(address(hook)), TickMath.getSqrtPriceAtTick(0));
         StakePortSwapRouter router = new StakePortSwapRouter(U.POOL_MANAGER);
         AquaStakeBidApp aquaBidApp = new AquaStakeBidApp(IAqua(AQUA), market);
+        // Attester = backend key that verifies World ID proofs with the Developer Portal.
+        WorldIdEligibility worldEligibility =
+            new WorldIdEligibility(vm.envAddress("WORLD_ATTESTER"), keccak256("world-id:passport"));
         vm.stopBroadcast();
 
         string memory obj = "deployment";
@@ -57,6 +61,7 @@ contract Deploy is Script {
         vm.serializeAddress(obj, "router", address(router));
         vm.serializeAddress(obj, "aqua", AQUA);
         vm.serializeAddress(obj, "aquaBidApp", address(aquaBidApp));
+        vm.serializeAddress(obj, "worldEligibility", address(worldEligibility));
         vm.serializeUint(obj, "stakePoolFee", U.stakeKey(address(hook)).fee);
         vm.serializeInt(obj, "stakePoolTickSpacing", U.stakeKey(address(hook)).tickSpacing);
         vm.serializeUint(obj, "liquidityPoolFee", U.liquidityKey().fee);
