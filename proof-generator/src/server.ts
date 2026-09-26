@@ -10,6 +10,7 @@ import { createPublicClient, createTestClient, getAddress, http, numberToHex, pa
 import { mainnet } from "viem/chains";
 import { getHeader, getStateSsz } from "./beacon.ts";
 import { BeaconSim, SECONDS_PER_SLOT } from "./simulate.ts";
+import { queueStats, totalActiveBalance } from "./queues.ts";
 import {
   balanceProof,
   pendingConsolidationProof,
@@ -83,6 +84,10 @@ const byAddress = new Map<string, number[]>();
   });
 }
 console.log(`indexed ${byAddress.size} withdrawal addresses`);
+
+// Queue lengths come from the REAL base state (computed once, before any simulated transition).
+const baseQueues = queueStats(sim.state as never, totalActiveBalance(sim.state as never));
+console.log("queues", JSON.stringify(baseQueues));
 
 // Base-state proofs are cached per validator: they only depend on the unmodified base state.
 const baseValidatorProofs = new Map<number, string>();
@@ -281,6 +286,9 @@ createServer(async (req, res) => {
         personas,
         simulated,
       });
+    }
+    if (url.pathname === "/api/queues") {
+      return send(res, 200, { ...baseQueues, baseSlot, source: "real mainnet beacon state" });
     }
     if (url.pathname === "/api/validators") {
       const address = url.searchParams.get("address")?.toLowerCase();
