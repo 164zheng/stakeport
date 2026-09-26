@@ -37,12 +37,13 @@ export default function BidsPage() {
   const [pricePct, setPricePct] = useState("100.2");
   const [budget, setBudget] = useState("64");
   const [mode, setMode] = useState<"dutch" | "fixed">("dutch");
-  const [startPct, setStartPct] = useState("99.9");
-  const [endPct, setEndPct] = useState<string>();
-  const [hours, setHours] = useState("6");
+  const [startPct, setStartPct] = useState("99");
+  const [endPct, setEndPct] = useState("101");
+  // SwapVM v1.0.2 DutchAuction takes a uint16 duration in seconds: at most ~18.2 hours
+  const [hours, setHours] = useState("18");
   const market = useQueues();
   const fairPct = market ? (fairValue(market.q, 32, market.apr.apr).fair / 32) * 100 : undefined;
-  const endValue = endPct ?? (fairPct ? fairPct.toFixed(3) : "100.18");
+  const endValue = endPct;
   const [busy, setBusy] = useState<string>();
   const [steps, setSteps] = useState<string[]>([]);
   const [error, setError] = useState<string>();
@@ -173,14 +174,14 @@ export default function BidsPage() {
                     <input value={endValue} onChange={(e) => setEndPct(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-2" />
                   </label>
                   <label>
-                    <span className="text-muted">Duration (h, ≤18)</span>
+                    <span className="text-muted">Duration (h, max 18)</span>
                     <input value={hours} onChange={(e) => setHours(e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-2" />
                   </label>
                 </div>
                 <p className="text-xs text-muted">
                   A 1inch SwapVM program (StaticBalances → DutchAuctionBalanceOut → LimitSwap) raises the offer every second
-                  from {startPct}% to {endValue}% of face{fairPct ? " (the entry-queue break-even)" : ""}; the first listing it
-                  crosses gets filled at the seller&apos;s ask.
+                  from {startPct}% to {endValue}% of face over {hours} hours; the first listing it crosses gets filled at the
+                  seller&apos;s ask.{fairPct ? ` Fair value today: ${fairPct.toFixed(2)}% of face.` : ""}
                 </p>
               </>
             ) : (

@@ -189,8 +189,9 @@ stake**, priced by **1inch SwapVM programs**.
   the buyer's wallet into the StakePort escrow ([L216](contracts/src/aqua/AquaStakeBidApp.sol#L216)).
 - **SwapVM (pricing):** the bid's price is a SwapVM program, e.g. a **Dutch auction**
   (`StaticBalances → DutchAuctionBalanceOut → LimitSwap → Salt`, built by
-  [`buildDutchBid` L143](contracts/src/aqua/AquaStakeBidApp.sol#L143)) that raises the offer every second from 99.9% of
-  face to the entry-queue break-even, so price discovery happens onchain until a seller accepts. Native stake is not
+  [`buildDutchBid` L143](contracts/src/aqua/AquaStakeBidApp.sol#L143)) that raises the offer every second (the demo default: from 99% to 101% of face over
+  18 hours, the longest duration SwapVM v1.0.2's `uint16` auction supports), so price discovery happens onchain until
+  a seller accepts. Native stake is not
   a token, so the program prices a marker asset (1 unit = 1 wei of stake) against WETH and the app evaluates it
   with SwapVM's `quote` in a static call ([L124](contracts/src/aqua/AquaStakeBidApp.sol#L124)); the bid limit is that
   price, capped ([`limit` L132](contracts/src/aqua/AquaStakeBidApp.sol#L132)). The buyer pays the seller's ask.
