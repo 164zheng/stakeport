@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+  <defs>
+    <radialGradient id="glow" cx="0.78" cy="0.5" r="0.6">
+      <stop offset="0" stop-color="#6ee7c8" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#6ee7c8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8ff0d6"/>
+      <stop offset="1" stop-color="#4fd1b0"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0 L0 0 L0 40" fill="none" stroke="#232a33" stroke-width="1" opacity="0.5"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="720" fill="#0b0d10"/>
+  <rect width="1280" height="720" fill="url(#grid)"/>
+  <rect width="1280" height="720" fill="url(#glow)"/>
+
+  <!-- brand -->
+  <g transform="translate(88 110) scale(0.1875)">
+    <rect width="512" height="512" rx="112" fill="url(#tile)"/>
+    <path d="M124 206 L166 256 L124 306 L82 256 Z" fill="#06221b" opacity="0.4"/>
+    <path d="M190 226 L220 256 L190 286" fill="none" stroke="#06221b" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+    <path d="M340 96 L444 256 L340 416 L236 256 Z" fill="#06221b"/>
+    <path d="M340 96 L444 256 L340 300 Z" fill="#12463a"/>
+    <path d="M340 416 L444 256 L340 300 Z" fill="#0c3329"/>
+  </g>
+  <text x="200" y="164" font-size="44" font-weight="700" fill="#e8edf2">StakePort</text>
+
+  <text x="88" y="290" font-size="64" font-weight="700" fill="#e8edf2">Trade native</text>
+  <text x="88" y="366" font-size="64" font-weight="700" fill="#e8edf2">Ethereum stake,</text>
+  <text x="88" y="442" font-size="64" font-weight="700" fill="#6ee7c8">trustlessly.</text>
+  <text x="88" y="500" font-size="24" fill="#8793a1">Skip the entry queue. No LST, no custodian, no key transfer.</text>
+
+  <!-- EIP chips -->
+  <g font-size="20" font-weight="600">
+    <rect x="88" y="552" width="132" height="40" rx="20" fill="#12161b" stroke="#232a33"/>
+    <text x="154" y="578" text-anchor="middle" fill="#e8edf2">EIP-7251</text>
+    <rect x="232" y="552" width="132" height="40" rx="20" fill="#12161b" stroke="#232a33"/>
+    <text x="298" y="578" text-anchor="middle" fill="#e8edf2">EIP-7702</text>
+    <rect x="376" y="552" width="132" height="40" rx="20" fill="#12161b" stroke="#232a33"/>
+    <text x="442" y="578" text-anchor="middle" fill="#e8edf2">EIP-4788</text>
+  </g>
+  <text x="88" y="640" font-size="20" fill="#8793a1">Uniswap v4 hook  ·  1inch Aqua  ·  World ID</text>
+
+  <!-- flow: seller validator -> consolidation -> buyer validator, payment released on proof -->
+  <g transform="translate(760 0)">
+    <!-- seller -->
+    <rect x="0" y="200" width="180" height="140" rx="20" fill="#12161b" stroke="#232a33" stroke-width="2"/>
+    <path d="M90 228 L118 266 L90 304 L62 266 Z" fill="#6ee7c8" opacity="0.45"/>
+    <text x="90" y="330" text-anchor="middle" font-size="18" fill="#8793a1">seller validator</text>
+    <!-- buyer -->
+    <rect x="300" y="200" width="180" height="140" rx="20" fill="#12161b" stroke="#6ee7c8" stroke-width="2"/>
+    <path d="M390 220 L426 266 L390 312 L354 266 Z" fill="#6ee7c8"/>
+    <path d="M390 220 L426 266 L390 280 Z" fill="#8ff0d6"/>
+    <text x="390" y="330" text-anchor="middle" font-size="18" fill="#e8edf2">buyer validator</text>
+    <!-- stake arrow -->
+    <path d="M192 270 L284 270" stroke="#6ee7c8" stroke-width="4" stroke-dasharray="10 8"/>
+    <path d="M276 258 L292 270 L276 282" fill="none" stroke="#6ee7c8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="240" y="246" text-anchor="middle" font-size="16" fill="#6ee7c8">stake</text>
+
+    <!-- escrow -->
+    <rect x="150" y="420" width="180" height="96" rx="20" fill="#12161b" stroke="#232a33" stroke-width="2"/>
+    <text x="240" y="462" text-anchor="middle" font-size="20" font-weight="600" fill="#e8edf2">escrow</text>
+    <text x="240" y="490" text-anchor="middle" font-size="16" fill="#8793a1">payment in WETH</text>
+    <!-- payment arrows -->
+    <path d="M390 352 L390 440 L342 440" fill="none" stroke="#8793a1" stroke-width="3"/>
+    <path d="M350 430 L338 440 L350 450" fill="none" stroke="#8793a1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="400" y="400" font-size="16" fill="#8793a1">buyer pays</text>
+    <path d="M150 468 L90 468 L90 360" fill="none" stroke="#fbbf24" stroke-width="3"/>
+    <path d="M80 370 L90 356 L100 370" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="-12" y="420" font-size="16" fill="#fbbf24">released</text>
+    <text x="-12" y="440" font-size="16" fill="#fbbf24">on proof</text>
+
+    <!-- proof badge -->
+    <rect x="130" y="560" width="220" height="44" rx="22" fill="#06221b" stroke="#6ee7c8" stroke-width="2"/>
+    <text x="240" y="588" text-anchor="middle" font-size="17" font-weight="600" fill="#6ee7c8">✓ beacon state proofs</text>
+  </g>
+</svg>
