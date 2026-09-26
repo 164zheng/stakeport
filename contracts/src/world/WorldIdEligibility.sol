@@ -27,7 +27,7 @@ contract WorldIdEligibility is IEligibilityPolicy, EIP712 {
         address account;
         /// @dev World ID nullifier for the StakePort action (one per passport)
         bytes32 nullifier;
-        /// @dev e.g. keccak256("world-id:passport")
+        /// @dev e.g. keccak256("world-id:nfc-document") (passport or My Number Card)
         bytes32 credential;
         uint64 expiresAt;
     }

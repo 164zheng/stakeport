@@ -4,11 +4,11 @@ import { join } from "node:path";
 
 export const WORLD_ACTION = process.env.WORLD_ACTION ?? "stakeport-verified-market";
 /** Credential the Verified Market policy requires (must match WorldIdEligibility.requiredCredential). */
-export const CREDENTIAL_LABEL = "world-id:passport";
+export const CREDENTIAL_LABEL = "world-id:nfc-document";
 /** IDKit response identifiers accepted as a passport (World ID 4.0) or its legacy document fallback. */
-/** IDKit response identifiers accepted as a passport. Legacy (3.0) levels are not accepted: their
- * "document" request is satisfied by any higher level such as Orb, which proves nothing about a document. */
-export const ACCEPTED_IDENTIFIERS = new Set(["passport"]);
+/** World ID 4.0 NFC document credentials: passport (9303) or Japanese My Number Card (9310). Legacy (3.0)
+ * levels are not accepted: their "document" request is satisfied by any higher level such as Orb. */
+export const ACCEPTED_IDENTIFIERS = new Set(["passport", "mnc"]);
 export const ELIGIBILITY_TTL_SECONDS = 30 * 24 * 3600;
 
 export function worldConfig() {

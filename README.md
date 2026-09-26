@@ -22,7 +22,7 @@ Built at ETHGlobal Tokyo 2026 (Classic Track).
 | Trustless verification | **EIP-4788** beacon block roots + SSZ Merkle proofs of validators, balances and `pending_consolidations` (Fulu) |
 | Price discovery | **Uniswap** wstETH/WETH TWAP: orders can be priced relative to the LST market |
 | Payment | WETH, or USDC in **one Uniswap v4 swap** through the StakePort hook, or a self-custodial **1inch Aqua** standing bid |
-| Counterparty policy | Optional **Verified Market** listings: buyer must hold a **World ID Passport** credential, enforced onchain at fill |
+| Counterparty policy | Optional **Verified Market** listings: buyer must hold a **World ID NFC document** credential (passport or My Number Card), enforced onchain at fill |
 
 No LST, no custodian, no validator key transfer.
 

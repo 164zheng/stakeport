@@ -1,6 +1,6 @@
 "use client";
 
-import { IDKitRequestWidget, passport, type RpContext } from "@worldcoin/idkit";
+import { CredentialRequest, IDKitRequestWidget, any, proofOfHuman, setDebug, type RpContext } from "@worldcoin/idkit";
 import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
 import { Badge, Button, Card } from "@/components/ui";
@@ -18,6 +18,9 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ kind: "ok" | "bad"; text: string }>();
+  // Diagnostics only (?diag=poh): request a World ID 4.0 Proof of Human to check whether the
+  // World App can produce 4.0 proofs at all. The backend still accepts only a passport.
+  const [diagPoh, setDiagPoh] = useState(false);
 
   const refresh = useCallback(async () => {
     const [c, e] = await Promise.all([worldConfig(), eligibility(buyer)]);
@@ -32,7 +35,12 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
     refresh().catch((e) => setNote({ kind: "bad", text: errorMessage(e) }));
   }, [refresh]);
 
+  const report = (kind: string, payload: unknown) =>
+    fetch("/api/world/debug", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, payload }) }).catch(() => {});
+
   async function start() {
+    setDebug(true);
+    setDiagPoh(new URLSearchParams(window.location.search).get("diag") === "poh");
     setBusy(true);
     setNote(undefined);
     try {
@@ -50,7 +58,7 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
       <Card className="flex items-center gap-3">
         <Badge value="active" />
         <span className="text-sm">
-          World ID Passport verified for this account until{" "}
+          World ID NFC document verified for this account until{" "}
           {new Date(Number(status.until) * 1000).toLocaleDateString()}.
         </span>
       </Card>
@@ -61,13 +69,13 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
     <Card className="space-y-3 border-warn/40">
       <div className="flex items-center gap-2">
         <span className="rounded-full bg-warn/15 px-2.5 py-0.5 text-xs font-medium text-warn">Verified Market</span>
-        <h2 className="font-semibold">This seller requires a World ID Passport</h2>
+        <h2 className="font-semibold">This seller requires a World ID NFC document</h2>
       </div>
       <p className="text-sm text-muted">
         The seller only trades with counterparties outside sanctioned jurisdictions. The credential that proves this
         (World ID Identity Check with a nationality attribute) is in preview, so this listing requires the closest one
-        available today: a <b>Passport (NFC)</b> credential. It shows a real government document holder, one account per
-        passport, without revealing who you are. It is not a KYC or sanctions check.
+        available today: an <b>NFC document credential</b> (passport or My Number Card). It shows a real government
+        document holder, one account per document, without revealing who you are. It is not a KYC or sanctions check.
       </p>
       <p className="text-xs text-muted">
         The proof is bound to your address, verified by our backend with the World Developer Portal, and recorded
@@ -79,7 +87,7 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
         </p>
       ) : (
         <Button onClick={start} loading={busy} disabled={!config}>
-          Verify with World ID (Passport)
+          Verify with World ID (Passport / My Number Card)
         </Button>
       )}
       {config?.environment === "staging" && (
@@ -103,29 +111,43 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
           environment={config.environment}
           // World ID 4.0 Passport only: the legacy fallback accepts any level >= document (e.g. Orb)
           allow_legacy_proofs={false}
-          preset={passport({ signal: signalFor(buyer) })}
+          {...(diagPoh
+            ? { preset: proofOfHuman({ signal: signalFor(buyer) }) }
+            : {
+                // one NFC government document: a passport or a Japanese My Number Card (same NFC credential)
+                constraints: any(
+                  CredentialRequest("passport", { signal: signalFor(buyer) }),
+                  CredentialRequest("mnc", { signal: signalFor(buyer) }),
+                ),
+              })}
           handleVerify={async (result) => {
             try {
               await verifyAndAttest(buyer, result);
             } catch (e) {
+              void report("result_rejected", {
+                protocol_version: result.protocol_version,
+                environment: result.environment,
+                identifiers: result.responses.map((r) => r.identifier),
+              });
               setNote({ kind: "bad", text: `Rejected: ${errorMessage(e)}` });
               throw e;
             }
           }}
           onSuccess={async () => {
-            setNote({ kind: "ok", text: "Passport verified: you can buy in the Verified Market." });
+            setNote({ kind: "ok", text: "Document verified: you can buy in the Verified Market." });
             await refresh();
           }}
-          onError={(code) => {
+          onError={(code, debugReport) => {
+            void report(`error:${code}`, debugReport);
             const text =
               code === "credential_unavailable"
-                ? "No Passport credential in your World ID. Verified Market listings stay locked; open listings are still available."
+                ? "No passport / My Number Card credential in your World ID. Verified Market listings stay locked; open listings are still available."
                 : code === "user_rejected" || code === "cancelled"
                   ? "Verification cancelled. Nothing was recorded; the purchase is not allowed."
                   : code === "failed_by_host_app"
                     ? undefined
                     : code === "world_id_4_not_available"
-                      ? "Your World App has no World ID 4.0 Passport credential yet. Add your passport (NFC) in World App and retry."
+                      ? "Your World ID has no NFC document credential yet. Add your passport or My Number Card in World App and retry."
                       : `Verification failed (${code}). The purchase is not allowed.`;
             // failed_by_host_app: our backend's reason is already shown by handleVerify
             if (text) setNote({ kind: "bad", text });

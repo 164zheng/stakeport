@@ -47,7 +47,7 @@ contract Deploy is Script {
         AquaStakeBidApp aquaBidApp = new AquaStakeBidApp(IAqua(AQUA), market);
         // Attester = backend key that verifies World ID proofs with the Developer Portal.
         WorldIdEligibility worldEligibility =
-            new WorldIdEligibility(vm.envAddress("WORLD_ATTESTER"), keccak256("world-id:passport"));
+            new WorldIdEligibility(vm.envAddress("WORLD_ATTESTER"), keccak256("world-id:nfc-document"));
         vm.stopBroadcast();
 
         string memory obj = "deployment";
