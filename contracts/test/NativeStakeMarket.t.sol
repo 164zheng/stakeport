@@ -84,6 +84,61 @@ contract FillTest is MarketBase {
         assertEq(weth.balanceOf(payer), 40 ether - 31.7 ether);
     }
 
+    // --- native ETH ------------------------------------------------------------------------------
+
+    function test_fillWithEth_singleTransaction() public {
+        NativeStakeMarket.StakeOrder memory o = _order();
+        bytes memory sig = _sign(o, sellerPk);
+        NativeStakeMarket.FillProofs memory p = _defaultProofs();
+        vm.deal(buyer, 40 ether);
+        uint256 wethBefore = weth.balanceOf(buyer);
+
+        vm.prank(buyer);
+        uint256 id = market.fillWithEth{value: 31.7 ether + 0.01 ether}(o, sig, targetPubkey, p, buyer);
+
+        assertEq(market.getTrade(id).payment, 31.7 ether);
+        assertEq(weth.balanceOf(address(market)), 31.7 ether, "payment escrowed as WETH");
+        assertEq(weth.balanceOf(buyer), wethBefore, "no WETH or approval needed");
+        assertEq(buyer.balance, 40 ether - 31.7 ether - 1, "only payment + 1 wei fee spent");
+        assertEq(address(market).balance, 0);
+        assertEq(predeploy.lastSource(), seller);
+    }
+
+    function test_fillWithEth_revertsWhenValueBelowPayment() public {
+        NativeStakeMarket.StakeOrder memory o = _order();
+        bytes memory sig = _sign(o, sellerPk);
+        NativeStakeMarket.FillProofs memory p = _defaultProofs();
+        vm.deal(buyer, 40 ether);
+        vm.prank(buyer);
+        vm.expectRevert(abi.encodeWithSelector(NativeStakeMarket.InsufficientEth.selector, 31 ether, 31.7 ether));
+        market.fillWithEth{value: 31 ether}(o, sig, targetPubkey, p, buyer);
+    }
+
+    function test_fillWithEth_revertsWithoutFee() public {
+        NativeStakeMarket.StakeOrder memory o = _order();
+        bytes memory sig = _sign(o, sellerPk);
+        NativeStakeMarket.FillProofs memory p = _defaultProofs();
+        vm.deal(buyer, 40 ether);
+        vm.prank(buyer);
+        // exactly the payment leaves nothing for the EIP-7251 fee
+        vm.expectRevert(abi.encodeWithSelector(Stake7702Delegate.InsufficientFee.selector, 1, 0));
+        market.fillWithEth{value: 31.7 ether}(o, sig, targetPubkey, p, buyer);
+    }
+
+    function test_fillWithEth_settlesLikeWethFill() public {
+        NativeStakeMarket.StakeOrder memory o = _order();
+        bytes memory sig = _sign(o, sellerPk);
+        NativeStakeMarket.FillProofs memory p = _defaultProofs();
+        vm.deal(buyer, 40 ether);
+        vm.prank(buyer);
+        uint256 id = market.fillWithEth{value: 32 ether}(o, sig, targetPubkey, p, buyer);
+        // refund path returns WETH to the buyer
+        vm.warp(vm.getBlockTimestamp() + ACCEPT_WINDOW + 1);
+        uint256 before = weth.balanceOf(buyer);
+        market.refundExpired(id);
+        assertEq(weth.balanceOf(buyer), before + 31.7 ether);
+    }
+
     // --- order checks ----------------------------------------------------------------------------
 
     function _expectFillRevert(

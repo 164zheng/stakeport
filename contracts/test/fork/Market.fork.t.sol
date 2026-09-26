@@ -98,6 +98,20 @@ contract MarketForkTest is ForkTest {
         assertTrue(found, "predeploy log");
     }
 
+    function test_fillWithEth_realWeth() public {
+        NativeStakeMarket.StakeOrder memory o = _order();
+        vm.prank(seller);
+        market.listOrder(o);
+        NativeStakeMarket.FillProofs memory p =
+            NativeStakeMarket.FillProofs({state: Fixture.stateRootProof(), source: source, target: target});
+        address ethBuyer = makeAddr("ethBuyer");
+        vm.deal(ethBuyer, 40 ether);
+        vm.prank(ethBuyer);
+        market.fillWithEth{value: 31.71 ether}(o, "", target.validator.pubkey, p, ethBuyer);
+        assertEq(WETH.balanceOf(address(market)), 31.7 ether);
+        assertEq(ethBuyer.balance, 40 ether - 31.7 ether - 1);
+    }
+
     function test_fill_rejectsTamperedRealProof() public {
         NativeStakeMarket.StakeOrder memory o = _order();
         vm.prank(seller);
