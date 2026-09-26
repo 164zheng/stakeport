@@ -36,6 +36,20 @@ pnpm -s tx 0x<txhash>      # any transaction (e.g. an Aqua bid match: WETH pulle
 See [QA.md](QA.md). Top three: why a premium (entry queue), what's real (checkpoint 1 is real mainnet data), what if
 the seller cheats (every path ends in a proof-based refund).
 
+## 3-minute video script (~340 spoken words, plus clicks)
+
+| Time | Screen / action | Say |
+|---|---|---|
+| 0:00–0:20 | `/`, queue panel | "Right now, new ETH stake waits about 29 days in Ethereum's entry queue, earning nothing. Meanwhile, validators who want out have no way to hand their active stake to someone who wants in. StakePort is a trustless market for native stake: no LST, no custodian, no key transfer." |
+| 0:20–0:40 | fair value card | "Because bought stake starts earning 26 days sooner than a new deposit, a buyer can rationally pay a premium, up to their break-even. Here that's +0.18%, computed from the real beacon-state queues and Lido's APR." |
+| 0:40–1:00 | `/demo`, Step 1: click *Enable 7702 and list* | "The seller is a real mainnet validator on a mainnet fork. Its withdrawal address delegates via EIP-7702 to our contract, which can only trigger a consolidation for an order the seller listed, and only once the payment is escrowed." |
+| 1:00–1:30 | Step 2: click *Buy with USDC* | "The buyer already runs a compounding validator and wants more stake. They pay in USDC with a single Uniswap v4 swap. Our hook routes the USDC through the canonical ETH/USDC pool, escrows the WETH, verifies SSZ proofs of both validators against an EIP-4788 beacon root, and submits an EIP-7251 consolidation from the seller's address, all in one transaction." |
+| 1:30–1:55 | Step 3: click *Relay checkpoint 1*, point at the **real** badge | "Checkpoint 1 proves the consensus layer accepted the request. This isn't simulated: it's the real mainnet beacon state from the block where this exact consolidation happened." |
+| 1:55–2:10 | Step 4: click *Fast-forward* | "The stake arrives about a day later, so we fast-forward. The contract checks the source was drained without being slashed, and releases the payment to the seller. If anything fails, a proof refunds the buyer." |
+| 2:10–2:30 | terminal: `pnpm -s hoodi-check` | "It's also deployed on Hoodi. This takes a consolidation waiting in today's Hoodi beacon state and proves it against our deployed oracle, the same check as checkpoint 1. Forged claims revert." |
+| 2:30–2:55 | `/bids`: *+1 hour* a few times, then *Match* | "Buyers can also post standing bids with 1inch Aqua. Funds stay in their wallet. A SwapVM Dutch auction raises the offer from 99 to 101% of face value until it crosses a listing, and the match pulls exactly the payment." |
+| 2:55–3:10 | `/`: Verified Market listing, then `/portfolio` | "Sellers who must avoid sanctioned counterparties can require a World ID document credential, enforced onchain. With StakePort, native stake becomes a liquid, trustless asset without leaving Ethereum's consensus layer." |
+
 ## Recording the demo video (2–4 min, ≥720p, own voice, no speed-up)
 
 Record the table above with screen capture (QuickTime → New Screen Recording). Cut the waits between clicks instead
