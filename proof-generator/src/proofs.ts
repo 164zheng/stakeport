@@ -16,6 +16,9 @@ function branch(root: Parameters<typeof createProof>[0], gindex: bigint): `0x${s
 
 export interface StateRootProof {
   timestamp: bigint;
+  /** header slot (= slot of the proven state); bound through the branch's node 4 = hash(slot, proposer) */
+  slot: bigint;
+  proposerIndex: bigint;
   stateRoot: `0x${string}`;
   branch: `0x${string}`[];
 }
@@ -26,6 +29,8 @@ export function stateRootProof(header: HeaderMessage, timestamp: number): StateR
   const view = ssz.phase0.BeaconBlockHeader.toViewDU(h);
   return {
     timestamp: BigInt(timestamp),
+    slot: BigInt(h.slot),
+    proposerIndex: BigInt(h.proposerIndex),
     stateRoot: hex(h.stateRoot),
     branch: branch(view.node, ssz.phase0.BeaconBlockHeader.getPathInfo(["stateRoot"]).gindex),
   };

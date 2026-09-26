@@ -34,9 +34,11 @@ const wethAbi = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
 
-const pub = createPublicClient({ chain: mainnet, transport: http(RPC) });
-const test = createTestClient({ chain: mainnet, mode: "anvil", transport: http(RPC) });
-const wallet = createWalletClient({ chain: mainnet, transport: http(RPC) });
+// the fork keeps mainnet state but may run under another chain id (CHAIN_ID=31337 for wallets)
+const chain = { ...mainnet, id: await createPublicClient({ transport: http(RPC) }).getChainId() };
+const pub = createPublicClient({ chain, transport: http(RPC) });
+const test = createTestClient({ chain, mode: "anvil", transport: http(RPC) });
+const wallet = createWalletClient({ chain, transport: http(RPC) });
 
 const get = async (p: string) => (await fetch(`${SVC}${p}`)).json();
 const post = async (p: string, body: unknown) =>

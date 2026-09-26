@@ -159,6 +159,15 @@ export async function trades(): Promise<Trade[]> {
   return out.reverse();
 }
 
+let acceptWindowCache: Promise<number> | undefined;
+/** Seconds after the fill before the buyer may reclaim a payment nobody proved accepted. */
+export function acceptWindow(): Promise<number> {
+  acceptWindowCache ??= getDeployment().then(async (d) =>
+    Number(await publicClient.readContract({ address: d.market, abi: nativeStakeMarketAbi, functionName: "acceptWindow" })),
+  );
+  return acceptWindowCache;
+}
+
 export async function isDelegated(eoa: Address) {
   const d = await getDeployment();
   const code = await publicClient.getCode({ address: eoa });

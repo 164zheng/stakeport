@@ -47,6 +47,10 @@ test("state root proof verifies against the header root", () => {
   }
   assert.equal(g, 1);
   assert.equal(`0x${node.toString("hex")}`, `0x${Buffer.from(root).toString("hex")}`);
+  // the contracts bind the slot through the second sibling: node 4 = hash(slot, proposer_index)
+  const le = (n: bigint) => Buffer.concat([Buffer.from(new BigUint64Array([n]).buffer), Buffer.alloc(24)]);
+  assert.equal(p.slot, 15294304n);
+  assert.equal(p.branch[1], `0x${sha256(Buffer.concat([le(p.slot), le(p.proposerIndex)])).toString("hex")}`);
 });
 
 test("abi encoding round-trips", () => {
@@ -56,6 +60,8 @@ test("abi encoding round-trips", () => {
   );
   const decoded = decodeAbiParameters([stateRootProofAbi], encodeStateRootProof(p))[0];
   assert.equal(decoded.timestamp, 123n);
+  assert.equal(decoded.slot, 1n);
+  assert.equal(decoded.proposerIndex, 2n);
   assert.equal(decoded.stateRoot, p.stateRoot);
   assert.deepEqual(decoded.branch, p.branch);
   assert.equal(validatorProofAbi.components.length, 3);

@@ -96,7 +96,8 @@ async function settleReal(id: bigint, t: Trade, now: bigint) {
       log(`  #${id}: consolidation accepted at slot ${p.slot}`);
       return send("proveAccepted", [id, p.stateRootProof, p.pending, src]);
     }
-    if (src.validator.exitEpoch === FAR_FUTURE && BigInt(p.timestamp) > t.filledAt + 64n * 12n) {
+    // the contract only accepts this once the request can no longer be waiting in the EIP-7251 queue
+    if (src.validator.exitEpoch === FAR_FUTURE && BigInt(p.timestamp) > t.filledAt + dequeueDelay) {
       log(`  #${id}: request ignored by the consensus layer`);
       return send("proveNotAccepted", [id, p.stateRootProof, src]);
     }
@@ -141,6 +142,7 @@ async function settleSim(id: bigint, t: Trade) {
 // ------------------------------------------------------------------------------------------------
 
 const acceptWindow = (await pub.readContract({ address: market, abi: marketAbi, functionName: "acceptWindow" })) as bigint;
+const dequeueDelay = (await pub.readContract({ address: market, abi: marketAbi, functionName: "REQUEST_DEQUEUE_DELAY" })) as bigint;
 const inFlight = new Set<string>();
 
 async function tick() {

@@ -6,6 +6,8 @@ export const stateRootProofAbi = {
   type: "tuple",
   components: [
     { name: "timestamp", type: "uint64" },
+    { name: "slot", type: "uint64" },
+    { name: "proposerIndex", type: "uint64" },
     { name: "stateRoot", type: "bytes32" },
     { name: "branch", type: "bytes32[]" },
   ],

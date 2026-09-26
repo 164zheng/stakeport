@@ -8,7 +8,7 @@ import { validatorsOf, type ValidatorInfo } from "@/lib/api";
 import { publicClient } from "@/lib/chain";
 import { MAINNET_GENESIS, SECONDS_PER_EPOCH } from "@/lib/config";
 import { duration, eth, gweiToEth, pct, short, usd } from "@/lib/format";
-import { isVerifiedMarket, listings, trades, wethBalance, type Listing, type Trade } from "@/lib/market";
+import { acceptWindow, isVerifiedMarket, listings, trades, wethBalance, type Listing, type Trade } from "@/lib/market";
 import { eligibility } from "@/lib/world";
 import { MyValidators } from "@/components/WalletBits";
 import { usePersona } from "@/lib/persona";
@@ -16,7 +16,6 @@ import { ethUsd } from "@/lib/prices";
 import { stakingApr } from "@/lib/queues";
 
 const MAX_EB = 2048e9;
-const ACCEPT_WINDOW = 86400;
 
 interface Action {
   level: "now" | "soon" | "info";
@@ -40,6 +39,10 @@ export default function PortfolioPage() {
   const [price, setPrice] = useState<number>();
   const [weth, setWeth] = useState<bigint>(0n);
   const [now, setNow] = useState<number>(0);
+  const [window_, setWindow] = useState<number>(Infinity);
+  useEffect(() => {
+    acceptWindow().then(setWindow).catch(() => {});
+  }, []);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
@@ -89,7 +92,7 @@ export default function PortfolioPage() {
     for (const t of myTrades) {
       const link = `/trades/${t.id}`;
       if (t.status === "RequestSubmitted") {
-        if (now - Number(t.filledAt) > ACCEPT_WINDOW) out.push({ level: "now", text: `Trade #${t.id}: accept window passed, refund can be claimed`, href: link });
+        if (now - Number(t.filledAt) > window_) out.push({ level: "now", text: `Trade #${t.id}: accept window passed, refund can be claimed`, href: link });
         else out.push({ level: "now", text: `Trade #${t.id}: relay the checkpoint 1 proof (consolidation accepted)`, href: link });
       }
       if (t.status === "Accepted") {
@@ -118,7 +121,7 @@ export default function PortfolioPage() {
     if (role === "buyer" && m.compounding.length === 0) out.push({ level: "info", text: "No 0x02 validator: convert one to compounding credentials to receive stake" });
     if (weth > 10n ** 18n) out.push({ level: "info", text: `${eth(weth)} WETH idle: browse listings to put it to work`, href: "/" });
     return out;
-  }, [myTrades, m, myListings, validators, role, weth, now, world, verifiedListings]);
+  }, [myTrades, m, myListings, validators, role, weth, now, world, verifiedListings, window_]);
 
   const usdOf = (ethAmount: number) => (price ? usd(ethAmount * price) : "…");
   const statusCounts = (validators ?? []).reduce<Record<string, number>>((a, v) => ((a[v.status] = (a[v.status] ?? 0) + 1), a), {});
