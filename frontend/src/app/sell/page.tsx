@@ -210,7 +210,7 @@ export default function SellPage() {
                 <div className="mt-3 rounded-xl bg-bg px-3 py-2 text-xs">
                   <div className="flex items-center justify-between">
                     <span>
-                      Fair value (buyer&apos;s break-even): <b>{fv.fair.toFixed(4)}</b> WETH
+                      Fair value: <b>{fv.fair.toFixed(4)}</b> WETH
                     </span>
                     <button className="text-accent hover:underline" onClick={() => setPrice(fv.fair.toFixed(4))}>
                       Use it
