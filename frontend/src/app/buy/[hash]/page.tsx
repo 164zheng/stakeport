@@ -93,8 +93,9 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
   }
 
   const amountWei = source ? BigInt(source.effectiveBalanceGwei) * 10n ** 9n : 0n;
-  const q = useQueues();
-  const fv = q && source ? fairValue(q, source.effectiveBalanceGwei / 1e9) : undefined;
+  const market = useQueues();
+  const q = market?.q;
+  const fv = market && source ? fairValue(market.q, source.effectiveBalanceGwei / 1e9, market.apr.apr) : undefined;
   const t = targets?.find((x) => x.index === target);
 
   return (
@@ -149,12 +150,14 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
             <div className="text-xs text-muted">already active, earns from delivery</div>
           </div>
           <div>
-            <div className="text-xs text-muted">Value of skipping {fv.buyerGainDays.toFixed(1)} days</div>
+            <div className="text-xs text-muted">Your break-even price</div>
             <div className="text-lg font-semibold">
-              up to {(fv.buyerMax - source.effectiveBalanceGwei / 1e9).toFixed(4)} ETH
+              {fv.fair.toFixed(4)} ETH
             </div>
-            <div className={`text-xs ${Number(payment) / 1e18 <= fv.buyerMax ? "text-good" : "text-bad"}`}>
-              {Number(payment) / 1e18 <= fv.buyerMax ? "this price is below your break-even" : "priced above break-even vs depositing"}
+            <div className={`text-xs ${Number(payment) / 1e18 <= fv.fair ? "text-good" : "text-bad"}`}>
+              {Number(payment) / 1e18 <= fv.fair
+                ? `${fv.gainDays.toFixed(1)} days of rewards sooner; this price is at or below it`
+                : "priced above break-even vs depositing"}
             </div>
           </div>
         </Card>

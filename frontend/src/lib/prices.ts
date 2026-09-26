@@ -22,6 +22,3 @@ export async function ethUsd(): Promise<number> {
   const [, answer] = await publicClient.readContract({ address: ETH_USD_FEED, abi: feedAbi, functionName: "latestRoundData" });
   return Number(answer) / 1e8;
 }
-
-/** Rough consensus-layer staking yield used for projections (labelled as an estimate in the UI). */
-export const EST_STAKING_APR = 0.029;

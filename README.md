@@ -29,11 +29,17 @@ No LST, no custodian, no validator key transfer.
 ## Why now: active stake is worth a premium
 
 At the demo's mainnet slot, **1.67M ETH waits ~29 days in the entry queue** earning nothing, while a StakePort
-purchase is delivered through the consolidation queue in **~2.8 days** and the exit queue is nearly empty. A buyer
-skipping ~26 days of the entry queue can rationally pay up to ~0.2% over face value; a seller exiting instead would
-be paid ~1.7 days sooner. StakePort computes this fair value band from the real beacon state
-([`proof-generator/src/queues.ts`](proof-generator/src/queues.ts), [`frontend/src/lib/queues.ts`](frontend/src/lib/queues.ts))
-and shows it on the market, sell and buy pages.
+purchase is delivered through the consolidation queue in **~2.8 days**. Bought stake therefore starts earning ~26 days
+sooner than a new deposit, and the buyer's break-even price is the fair value StakePort shows:
+
+```
+fair = amount × (1 + APR × max(0, entry_wait − delivery_wait) / 365)
+     = 32 × (1 + 2.50% × 26.2 / 365) ≈ 32.0575 ETH   (+0.18%)
+```
+
+Queue waits come from the real beacon state under Electra churn rules
+([`proof-generator/src/queues.ts`](proof-generator/src/queues.ts)); the APR is Lido's public stETH 7-day APR grossed up
+for its 10% fee ([`frontend/src/app/api/apr/route.ts`](frontend/src/app/api/apr/route.ts)).
 
 ## How a trade settles
 

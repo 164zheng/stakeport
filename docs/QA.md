@@ -43,9 +43,9 @@
 no depeg, no custody, and the buyer ends up with native stake on their own validator.
 
 **Why would anyone pay a premium?** New stake waits ~29 days in the entry queue earning nothing (1.67M ETH pending at
-the demo slot). Bought stake arrives in ~2.8 days and earns from then, so paying up to ~0.2% more is rational. The
-seller's alternative (exit) is fast right now, so sellers won't discount. The fair band is computed from the real
-beacon state.
+the demo slot). Bought stake arrives in ~2.8 days and earns from then, so the buyer's break-even is
+`amount × (1 + APR × (entry − delivery) / 365)` ≈ +0.18%. Queue waits come from the real beacon state; the APR from
+Lido's public API (stETH APR grossed up for its 10% fee).
 
 **What if the queues flip?** Then exits are slow and sellers pay for liquidity (discount). Pricing is market-driven;
 the UI shows the band for whatever the current queues are.

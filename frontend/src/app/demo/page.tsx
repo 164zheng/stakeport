@@ -38,7 +38,7 @@ const STEPS: StepDef[] = [
     title: "Seller lists an active validator",
     eips: ["EIP-7702"],
     explain:
-      "The seller's withdrawal address delegates to the StakePort contract, so the market can later trigger the consolidation from that address. The price is the fair value implied by today's mainnet queues.",
+      "The seller's withdrawal address delegates to the StakePort contract, so the market can later trigger the consolidation from that address. The price is the buyer's break-even versus waiting in today's mainnet entry queue.",
   },
   {
     title: "Buyer pays; the stake starts moving",
@@ -62,7 +62,7 @@ const STEPS: StepDef[] = [
 
 export default function DemoPage() {
   const { info, setRole } = usePersona();
-  const q = useQueues();
+  const market = useQueues();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -91,7 +91,7 @@ export default function DemoPage() {
 
   const doList = () =>
     run(async () => {
-      if (!seller || !replay || !q) throw new Error("demo needs the replay fixture and the proof service");
+      if (!seller || !replay || !market) throw new Error("demo needs the replay fixture and the proof service");
       setRole("seller");
       const [v] = await api.validators({ indices: [replay.source] });
       // price the amount the market will use: the effective balance in the fill proof
@@ -101,7 +101,7 @@ export default function DemoPage() {
       add(`Seller ${short(seller, 4)} owns validator #${v.index} (real mainnet validator, ${amountGwei / 1e9} ETH)`);
       await enableDelegation(seller);
       add("EIP-7702 delegation to the StakePort delegate");
-      const price = fairValue(q, amountGwei / 1e9).fair;
+      const price = fairValue(market.q, amountGwei / 1e9, market.apr.apr).fair;
       const now = (await publicClient.getBlock()).timestamp;
       const order: StakeOrder = {
         seller,
@@ -116,7 +116,7 @@ export default function DemoPage() {
       await listOrder(order);
       const l = (await listings()).find((x) => x.order.nonce === order.nonce);
       setListing(l);
-      add(`Listed at ${price.toFixed(4)} WETH (fair value from the entry-queue premium)`);
+      add(`Listed at ${price.toFixed(4)} WETH (the buyer's break-even vs the entry queue)`);
     });
 
   const doBuy = (route: "eth" | "usdc") =>
@@ -153,7 +153,7 @@ export default function DemoPage() {
 
   const actions: Record<number, React.ReactNode> = {
     0: (
-      <Button onClick={doList} loading={busy} disabled={!replay || !q}>
+      <Button onClick={doList} loading={busy} disabled={!replay || !market}>
         Enable 7702 and list at fair value
       </Button>
     ),

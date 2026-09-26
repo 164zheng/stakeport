@@ -2,17 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui";
-import { fairValue, queues, type QueueStats } from "@/lib/queues";
+import { fairValue, queues, stakingApr, type QueueStats, type StakingApr } from "@/lib/queues";
 
 const d = (x: number) => (x < 1 ? `${(x * 24).toFixed(1)} h` : `${x.toFixed(1)} days`);
 const eth = (x: number) => x.toLocaleString("en-US", { maximumFractionDigits: 0 });
 
+/** Real queue lengths (proof service) and the staking APR (Lido API, server-side). */
 export function useQueues() {
   const [q, setQ] = useState<QueueStats>();
+  const [apr, setApr] = useState<StakingApr>();
   useEffect(() => {
     queues().then(setQ).catch(() => {});
+    stakingApr().then(setApr).catch(() => {});
   }, []);
-  return q;
+  return q && apr ? { q, apr } : undefined;
 }
 
 function Bar({ label, days, max, sub, tone }: { label: string; days: number; max: number; sub: string; tone: string }) {
@@ -32,10 +35,11 @@ function Bar({ label, days, max, sub, tone }: { label: string; days: number; max
 
 /** Real mainnet queue lengths and the fair premium they imply for already-active stake. */
 export function QueuePanel({ amountEth = 32 }: { amountEth?: number }) {
-  const q = useQueues();
-  if (!q) return null;
-  const f = fairValue(q, amountEth);
-  const max = Math.max(q.entry.waitDays, q.exit.withdrawableDays, q.consolidation.deliveryDays);
+  const m = useQueues();
+  if (!m) return null;
+  const { q, apr } = m;
+  const f = fairValue(q, amountEth, apr.apr);
+  const max = Math.max(q.entry.waitDays, q.consolidation.deliveryDays);
   return (
     <Card className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       <div className="space-y-4">
@@ -57,24 +61,18 @@ export function QueuePanel({ amountEth = 32 }: { amountEth?: number }) {
           tone="bg-accent"
           sub={`${q.consolidation.pendingCount.toLocaleString()} pending consolidations · ${q.churnEthPerEpoch.consolidation} ETH/epoch churn · + 256-epoch withdrawability delay`}
         />
-        <Bar
-          label="Exit → withdrawable (seller's alternative)"
-          days={q.exit.withdrawableDays}
-          max={max}
-          tone="bg-info"
-          sub="exit queue + 256-epoch withdrawability delay (withdrawal sweep not included)"
-        />
       </div>
       <div className="flex flex-col justify-center gap-3 rounded-xl bg-bg p-4">
         <div className="text-xs uppercase tracking-wider text-muted">Fair value of {amountEth} ETH active stake</div>
         <div className="text-3xl font-semibold tabular-nums">{f.fair.toFixed(4)} ETH</div>
         <div className="text-sm text-good">+{(f.premiumPct * 100).toFixed(3)}% premium</div>
         <p className="text-xs text-muted">
-          A buyer skips {f.buyerGainDays.toFixed(1)} days of the entry queue and would pay up to{" "}
-          <b className="text-fg">{f.buyerMax.toFixed(4)}</b>. A seller exiting instead would be paid{" "}
-          {f.sellerDelayDays.toFixed(1)} days sooner, so accepts from <b className="text-fg">{f.sellerMin.toFixed(4)}</b>.
-          At ~{(f.apr * 100).toFixed(1)}% staking APR (estimate).
+          The buyer&apos;s break-even: bought stake earns {f.gainDays.toFixed(1)} days sooner than a new deposit.
         </p>
+        <p className="font-mono text-xs text-muted">
+          {amountEth} × (1 + {(f.apr * 100).toFixed(2)}% × {f.gainDays.toFixed(1)} / 365)
+        </p>
+        <p className="text-xs text-muted">APR: {apr.source}</p>
       </div>
     </Card>
   );

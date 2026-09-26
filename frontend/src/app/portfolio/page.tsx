@@ -11,7 +11,8 @@ import { duration, eth, gweiToEth, pct, short, usd } from "@/lib/format";
 import { isVerifiedMarket, listings, trades, wethBalance, type Listing, type Trade } from "@/lib/market";
 import { eligibility } from "@/lib/world";
 import { usePersona } from "@/lib/persona";
-import { EST_STAKING_APR, ethUsd } from "@/lib/prices";
+import { ethUsd } from "@/lib/prices";
+import { stakingApr } from "@/lib/queues";
 
 const MAX_EB = 2048e9;
 const ACCEPT_WINDOW = 86400;
@@ -30,6 +31,11 @@ export default function PortfolioPage() {
   const [myListings, setMyListings] = useState<Listing[]>([]);
   const [verifiedListings, setVerifiedListings] = useState(0);
   const [world, setWorld] = useState<{ eligible: boolean; until: bigint }>();
+  const [apr, setApr] = useState<{ apr: number; source: string }>();
+
+  useEffect(() => {
+    stakingApr().then(setApr).catch(() => {});
+  }, []);
   const [price, setPrice] = useState<number>();
   const [weth, setWeth] = useState<bigint>(0n);
   const [now, setNow] = useState<number>(0);
@@ -143,8 +149,8 @@ export default function PortfolioPage() {
         <Card>
           <Stat
             label="Est. yearly rewards"
-            value={`${(m.effGwei / 1e9 * EST_STAKING_APR).toFixed(2)} ETH`}
-            sub={`at ~${pct(EST_STAKING_APR, 1)} APR (estimate)`}
+            value={apr ? `${((m.effGwei / 1e9) * apr.apr).toFixed(2)} ETH` : "…"}
+            sub={apr ? `at ${pct(apr.apr, 2)} APR (${apr.source})` : "loading APR"}
           />
         </Card>
         <Card>

@@ -6,7 +6,7 @@ Setup (before judging): `./scripts/dev.sh`, wait for "frontend: http://localhost
 | Time | Screen | Say |
 |---|---|---|
 | 0:00–0:30 | `/demo`, queue panel | "Today, new ETH stake waits **29 days** in the entry queue earning nothing: 1.67 million ETH pending. Validators that want out can't hand their active stake to someone who wants in. StakePort is a trustless market for native stake: no LST, no custodian, no key transfer." |
-| 0:30–0:50 | fair value card | "Because buyers skip the entry queue, active stake is worth a premium: the fair band is computed from the real beacon state — here +0.11% for 32 ETH." |
+| 0:30–0:50 | fair value card | "Bought stake earns 26 days sooner than a new deposit, so its fair value is the buyer's break-even: 32 × (1 + APR × 26 days / 365) — here +0.18%, with queues from the real beacon state and APR from Lido's public API." |
 | 0:50–1:20 | Step 1 | "The seller is a real mainnet validator operator. Its withdrawal address delegates via **EIP-7702** to our contract and lists at the fair price." Click *Enable 7702 and list*. |
 | 1:20–2:00 | Step 2 | (Or *Buy with ETH*: one transaction, no approval.) "The buyer pays with USDC. **One Uniswap v4 swap**: our hook routes through the canonical pool, escrows WETH, verifies **SSZ proofs of both validators against an EIP-4788 root**, and submits an **EIP-7251** consolidation from the seller's address." Click *Buy with USDC*. |
 | 2:00–2:40 | Step 3 | "Checkpoint 1: the consensus layer accepted it. This proof is not simulated — it's the **real mainnet beacon state** from block 26058400, where this exact consolidation happened." Click *Relay checkpoint 1*; point at the green **real** badge. |

@@ -49,8 +49,8 @@ export default function SellPage() {
 
   const v = validators?.find((x) => x.index === selected);
   const amountEth = v ? v.effectiveBalanceGwei / 1e9 : 0;
-  const q = useQueues();
-  const fv = q && amountEth > 0 ? fairValue(q, amountEth) : undefined;
+  const market = useQueues();
+  const fv = market && amountEth > 0 ? fairValue(market.q, amountEth, market.apr.apr) : undefined;
 
   async function onDelegate() {
     if (!seller) return;
@@ -210,19 +210,15 @@ export default function SellPage() {
                 <div className="mt-3 rounded-xl bg-bg px-3 py-2 text-xs">
                   <div className="flex items-center justify-between">
                     <span>
-                      Fair band from real queues:{" "}
-                      <b>
-                        {fv.sellerMin.toFixed(4)} – {fv.buyerMax.toFixed(4)}
-                      </b>{" "}
-                      WETH
+                      Fair value (buyer&apos;s break-even): <b>{fv.fair.toFixed(4)}</b> WETH
                     </span>
                     <button className="text-accent hover:underline" onClick={() => setPrice(fv.fair.toFixed(4))}>
-                      Use fair price {fv.fair.toFixed(4)}
+                      Use it
                     </button>
                   </div>
                   <div className="mt-1 text-muted">
-                    Buyers skip {fv.buyerGainDays.toFixed(1)} days of the entry queue; a premium up to {pct(fv.buyerMax / amountEth - 1, 3)} is
-                    rational for them.
+                    Buyers skip {fv.gainDays.toFixed(1)} days of the entry queue, worth +{pct(fv.premiumPct, 3)} at{" "}
+                    {pct(fv.apr, 2)} APR.
                   </div>
                 </div>
               )}
