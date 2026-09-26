@@ -183,7 +183,7 @@ when available (the policy is a pluggable contract). This is not a KYC or sancti
 1. IDKit requests a World ID 4.0 NFC document proof, `any(passport, mnc)` bound to the buyer's address as signal
    (legacy proofs disabled: the legacy "document" level is satisfied by any higher level such as Orb), with a
    backend RP signature
-   ([`WorldGate.tsx` L118](frontend/src/components/WorldGate.tsx#L118), [`/api/world/rp-signature`](frontend/src/app/api/world/rp-signature/route.ts)).
+   ([`WorldGate.tsx` L111](frontend/src/components/WorldGate.tsx#L111), [`/api/world/rp-signature`](frontend/src/app/api/world/rp-signature/route.ts)).
 2. [`/api/world/verify`](frontend/src/app/api/world/verify/route.ts) checks the action, environment, credential
    identifier (L33) and that the signal is the buyer's address (L41), then verifies the proof with the Developer
    Portal `POST /api/v4/verify/{rp_id}` (L45) and signs an EIP-712 attestation (L69).

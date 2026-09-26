@@ -1,6 +1,6 @@
 "use client";
 
-import { CredentialRequest, IDKitRequestWidget, any, proofOfHuman, setDebug, type RpContext } from "@worldcoin/idkit";
+import { CredentialRequest, IDKitRequestWidget, any, setDebug, type RpContext } from "@worldcoin/idkit";
 import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
 import { Badge, Button, Card } from "@/components/ui";
@@ -18,9 +18,6 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ kind: "ok" | "bad"; text: string }>();
-  // Diagnostics only (?diag=poh): request a World ID 4.0 Proof of Human to check whether the
-  // World App can produce 4.0 proofs at all. The backend still accepts only a passport.
-  const [diagPoh, setDiagPoh] = useState(false);
 
   const refresh = useCallback(async () => {
     const [c, e] = await Promise.all([worldConfig(), eligibility(buyer)]);
@@ -40,7 +37,6 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
 
   async function start() {
     setDebug(true);
-    setDiagPoh(new URLSearchParams(window.location.search).get("diag") === "poh");
     setBusy(true);
     setNote(undefined);
     try {
@@ -111,15 +107,11 @@ export function WorldGate({ buyer, onEligible }: { buyer: Address; onEligible: (
           environment={config.environment}
           // World ID 4.0 Passport only: the legacy fallback accepts any level >= document (e.g. Orb)
           allow_legacy_proofs={false}
-          {...(diagPoh
-            ? { preset: proofOfHuman({ signal: signalFor(buyer) }) }
-            : {
-                // one NFC government document: a passport or a Japanese My Number Card (same NFC credential)
-                constraints: any(
-                  CredentialRequest("passport", { signal: signalFor(buyer) }),
-                  CredentialRequest("mnc", { signal: signalFor(buyer) }),
-                ),
-              })}
+          // one NFC government document: a passport or a Japanese My Number Card (same NFC credential)
+          constraints={any(
+            CredentialRequest("passport", { signal: signalFor(buyer) }),
+            CredentialRequest("mnc", { signal: signalFor(buyer) }),
+          )}
           handleVerify={async (result) => {
             try {
               await verifyAndAttest(buyer, result);
