@@ -8,6 +8,8 @@ import {BeaconOracle} from "../src/BeaconOracle.sol";
 import {NativeStakeMarket} from "../src/NativeStakeMarket.sol";
 import {AquaStakeBidApp} from "../src/aqua/AquaStakeBidApp.sol";
 import {IAqua} from "../src/aqua/IAqua.sol";
+import {ISwapVM} from "@1inch/swap-vm/interfaces/ISwapVM.sol";
+import {SwapVMRouter} from "@1inch/swap-vm/routers/SwapVMRouter.sol";
 import {WorldIdEligibility} from "../src/world/WorldIdEligibility.sol";
 import {StakePortHook} from "../src/uniswap/StakePortHook.sol";
 import {StakePortSwapRouter} from "../src/uniswap/StakePortSwapRouter.sol";
@@ -22,6 +24,7 @@ contract Deploy is Script {
     uint256 constant MAINNET_GENESIS = 1606824023;
     /// Official 1inch Aqua registry (same address on every supported chain)
     address constant AQUA = 0x1111113CCf1426A8E30e2bfF5E005d929bF6a90a;
+
 
     function run() external {
         // Demo defaults: fill proofs come from one pinned beacon state and the demo fast-forwards
@@ -44,7 +47,10 @@ contract Deploy is Script {
         StakePortHook hook = new StakePortHook{salt: salt}(U.POOL_MANAGER, market, U.liquidityKey());
         U.POOL_MANAGER.initialize(U.stakeKey(address(hook)), TickMath.getSqrtPriceAtTick(0));
         StakePortSwapRouter router = new StakePortSwapRouter(U.POOL_MANAGER);
-        AquaStakeBidApp aquaBidApp = new AquaStakeBidApp(IAqua(AQUA), market);
+        // Official SwapVMRouter v1.0.2 (full opcode set, unmodified source). The mainnet 0x11111133…
+        // router is the AMM-only AquaSwapVMRouter, which has no Dutch-auction instructions.
+        SwapVMRouter swapVm = new SwapVMRouter(AQUA, WETH, msg.sender, "1inch SwapVM", "1.0.2");
+        AquaStakeBidApp aquaBidApp = new AquaStakeBidApp(IAqua(AQUA), market, ISwapVM(address(swapVm)));
         // Attester = backend key that verifies World ID proofs with the Developer Portal.
         WorldIdEligibility worldEligibility =
             new WorldIdEligibility(vm.envAddress("WORLD_ATTESTER"), keccak256("world-id:nfc-document"));
@@ -61,6 +67,7 @@ contract Deploy is Script {
         vm.serializeAddress(obj, "router", address(router));
         vm.serializeAddress(obj, "aqua", AQUA);
         vm.serializeAddress(obj, "aquaBidApp", address(aquaBidApp));
+        vm.serializeAddress(obj, "swapVm", address(swapVm));
         vm.serializeAddress(obj, "worldEligibility", address(worldEligibility));
         vm.serializeUint(obj, "stakePoolFee", U.stakeKey(address(hook)).fee);
         vm.serializeInt(obj, "stakePoolTickSpacing", U.stakeKey(address(hook)).tickSpacing);
