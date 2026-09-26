@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePersona } from "@/lib/persona";
 import { short } from "@/lib/format";
-import { parseEther } from "viem";
-import { testClient } from "@/lib/chain";
+import { useState } from "react";
+import { formatEther, parseEther } from "viem";
+import { errorMessage, publicClient, testClient } from "@/lib/chain";
 import { IS_FORK } from "@/lib/config";
 
 const links = [
@@ -20,6 +21,7 @@ const links = [
 export function Nav() {
   const path = usePathname();
   const { role, setRole, address, error, wallet, connect, disconnect } = usePersona();
+  const [faucet, setFaucet] = useState<string>();
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-bg/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
@@ -55,13 +57,24 @@ export function Nav() {
           {wallet ? (
             <>
               {IS_FORK && (
+                <>
                 <button
-                  onClick={() => testClient.setBalance({ address: wallet, value: parseEther("100") }).catch(() => {})}
+                  onClick={async () => {
+                    try {
+                      await testClient.setBalance({ address: wallet, value: parseEther("100") });
+                      const bal = await publicClient.getBalance({ address: wallet });
+                      setFaucet(`${Number(formatEther(bal)).toFixed(2)} ETH on the fork`);
+                    } catch (e) {
+                      setFaucet(`failed: ${errorMessage(e)}`);
+                    }
+                  }}
                   title="Fork only: give the connected wallet 100 test ETH"
                   className="rounded-lg border border-line px-2 py-1 text-xs text-muted hover:text-fg"
                 >
                   +100 ETH
                 </button>
+                {faucet && <span className="text-xs text-muted">{faucet}</span>}
+                </>
               )}
               <button onClick={disconnect} className="rounded-lg border border-line px-2 py-1 text-xs text-muted hover:text-fg">
                 Disconnect
