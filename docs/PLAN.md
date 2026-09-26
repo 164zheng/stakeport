@@ -30,7 +30,8 @@ custodian, no validator key transfer.
    Price is checked against the Uniswap wstETH/WETH TWAP ("Uniswap prices it, Ethereum
    consensus delivers it"). Fallback: direct WETH payment path stays available.
 4. **1inch Aqua**: self-custodial native-stake bids.
-5. **World IDKit**: Verified Market (see below).
+5. **World IDKit**: Verified Market (see below). Implemented: per-listing eligibility policy,
+   WorldIdEligibility registry, IDKit backend in the Next.js app.
 
 ## Partner prizes (max 3 partners)
 

@@ -22,6 +22,7 @@ Built at ETHGlobal Tokyo 2026 (Classic Track).
 | Trustless verification | **EIP-4788** beacon block roots + SSZ Merkle proofs of validators, balances and `pending_consolidations` (Fulu) |
 | Price discovery | **Uniswap** wstETH/WETH TWAP: orders can be priced relative to the LST market |
 | Payment | WETH, or USDC in **one Uniswap v4 swap** through the StakePort hook, or a self-custodial **1inch Aqua** standing bid |
+| Counterparty policy | Optional **Verified Market** listings: buyer must hold a **World ID Passport** credential, enforced onchain at fill |
 
 No LST, no custodian, no validator key transfer.
 
@@ -60,9 +61,10 @@ contracts/          Foundry
     uniswap/StakePortSwapRouter.sol
     uniswap/UniswapStakePriceOracle.sol   v3 TWAP staked-ETH reference price
     aqua/AquaStakeBidApp.sol      1inch Aqua app: self-custodial standing bids
+    world/WorldIdEligibility.sol  World ID Passport eligibility registry (Verified Market policy)
   test/             unit tests (mocks) + mainnet fork tests (real beacon proofs, real predeploy, real pools)
 proof-generator/    TypeScript: Beacon API client, SSZ proofs (lodestar), proof service for the demo
-frontend/           Next.js: market, sell, buy, bids, trades, portfolio
+frontend/           Next.js: market, sell, buy, bids, trades, portfolio; /api/world/* World ID backend
 scripts/            dev.sh (whole demo), anvil.sh, deploy.sh, export-frontend.sh
 docs/PLAN.md        plan, decisions and environment findings
 ```
@@ -75,6 +77,7 @@ Requirements: Foundry, Node 24, pnpm, an Ethereum mainnet RPC and a Beacon API t
 ```bash
 git clone --recurse-submodules https://github.com/164zheng/stakeport && cd stakeport
 cp .env.example .env                     # MAINNET_RPC_URL, BEACON_API_URL
+cp frontend/.env.example frontend/.env.local   # optional: World ID app_id / rp_id / signing key
 (cd proof-generator && pnpm install) && (cd frontend && pnpm install)
 
 ./scripts/dev.sh                         # anvil fork + deploy + proof service + frontend
@@ -105,8 +108,8 @@ CLI version of the same flow: `cd proof-generator && node scripts/e2e.ts` (with 
 ## Tests
 
 ```bash
-cd contracts && forge test                 # 79 unit tests; fork tests are skipped without MAINNET_RPC_URL
-set -a; . ../.env; set +a; forge test      # + 22 mainnet fork tests (101 total)
+cd contracts && forge test                 # 93 unit tests; fork tests are skipped without MAINNET_RPC_URL
+set -a; . ../.env; set +a; forge test      # + 22 mainnet fork tests (115 total)
 cd proof-generator && pnpm test            # gindex parity with Solidity, proof and ABI checks
 ```
 
@@ -114,6 +117,8 @@ cd proof-generator && pnpm test            # gindex parity with Solidity, proof 
   consolidation, slot), tampering and malformed-proof cases.
 - `NativeStakeMarket.t.sol`: fill checks (signature, delegation, every validator condition, capacity, double
   sale, fee), LST-relative pricing (fuzz), both checkpoints and every refund path.
+- `WorldIdEligibility.t.sol`: attestations (attester signature, credential, expiry, one passport = one
+  account), Verified Market listings reject unverified buyers and check the buyer, not the payer.
 - `fork/Market.fork.t.sol`: fills a real validator's stake with real proofs; the real predeploy queues the
   request with the seller as source address.
 - `fork/Uniswap.fork.t.sol`: TWAP oracle; USDC → native stake in one v4 swap; hook guards.
@@ -159,6 +164,34 @@ buyer's wallet. When a listing is priced within the bid, anyone calls
 wallet into the StakePort escrow ([L94](contracts/src/aqua/AquaStakeBidApp.sol#L94)) and the seller's validator
 is consolidated into the bid's target. One budget can fill several listings; `dock` withdraws the bid.
 Tests run against the official deployment on a mainnet fork ([`Aqua.fork.t.sol`](contracts/test/fork/Aqua.fork.t.sol)).
+
+### World (IDKit): Verified Market
+
+**Trust moment.** Some sellers (funds, companies) must not trade their stake with counterparties in sanctioned
+jurisdictions. They list in the **Verified Market**: only buyers who pass the listing's eligibility policy can
+fill it, and the market enforces it at fill time for every route (WETH, Uniswap hook, Aqua bid)
+([`NativeStakeMarket.sol` L229](contracts/src/NativeStakeMarket.sol#L229),
+[`listOrderWithPolicy` L189](contracts/src/NativeStakeMarket.sol#L189)).
+
+**Why this credential.** The credential that expresses the seller's rule is World ID *Identity Check* with a
+`nationality` attribute, which is in preview. The minimum sufficient assurance available today is the
+**Passport (NFC) credential**: a real government-issued document holder, one account per passport, no personal
+data revealed. Proof of Human or Selfie Check would say nothing about a document; Identity Check will replace it
+when available (the policy is a pluggable contract). This is not a KYC or sanctions check, and the UI says so.
+
+**Flow.**
+1. IDKit requests `passport({ signal: buyerAddress })` with a backend RP signature
+   ([`WorldGate.tsx` L105](frontend/src/components/WorldGate.tsx#L105), [`/api/world/rp-signature`](frontend/src/app/api/world/rp-signature/route.ts)).
+2. [`/api/world/verify`](frontend/src/app/api/world/verify/route.ts) checks the action, environment, credential
+   identifier (L33) and that the signal is the buyer's address (L39), then verifies the proof with the Developer
+   Portal `POST /api/v4/verify/{rp_id}` (L43) and signs an EIP-712 attestation (L64).
+3. [`WorldIdEligibility.attest`](contracts/src/world/WorldIdEligibility.sol#L53) records it; a World ID nullifier
+   can be bound to only one account (L58). World ID 4.0 proofs can only be verified onchain on World Chain, so the
+   Ethereum-side registry relies on the backend attester.
+
+**Alternative paths (demoed).** Unverified buyer → "Try to buy without verification" → rejected onchain with
+`BuyerNotEligible`. Cancelled request, missing Passport credential or a proof rejected by the backend → clear
+message, nothing recorded, open listings remain available. Debrief: [`docs/WORLD_DEBRIEF.md`](docs/WORLD_DEBRIEF.md).
 
 ### Curvegrid (Digital Asset Dashboard)
 
