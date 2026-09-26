@@ -1,5 +1,7 @@
 export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? "http://127.0.0.1:8545";
 export const PROOF_SERVICE_URL = process.env.NEXT_PUBLIC_PROOF_SERVICE_URL ?? "http://localhost:8788";
+/** Optional StakePort indexer (proof-generator/src/indexer.ts); falls back to eth_getLogs when unset. */
+export const INDEXER_URL = process.env.NEXT_PUBLIC_INDEXER_URL;
 export const MAINNET_GENESIS = 1606824023;
 export const SECONDS_PER_EPOCH = 384;
 export const BEACONCHAIN_URL = "https://beaconcha.in/validator/";

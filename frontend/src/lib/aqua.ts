@@ -2,7 +2,7 @@ import { decodeAbiParameters, decodeFunctionData, encodeAbiParameters, erc20Abi,
 import { aquaStakeBidAppAbi, nativeStakeMarketAbi } from "@/generated/abis";
 import { api } from "./api";
 import { publicClient, write } from "./chain";
-import { getDeployment } from "./config";
+import { INDEXER_URL, getDeployment } from "./config";
 import { fillProofs, fundPersona, quote, type Listing } from "./market";
 
 const aquaAbi = [
@@ -83,7 +83,17 @@ const encodeBid = (b: StakeBid) => encodeAbiParameters([bidAbi], [b]);
 export async function listBids(): Promise<BidInfo[]> {
   const d = await getDeployment();
   if (!d.aqua || !d.aquaBidApp) return [];
-  const logs = await publicClient.getContractEvents({ address: d.aqua, abi: aquaAbi, eventName: "Shipped", fromBlock: BigInt(d.deployBlock) });
+  const logs = INDEXER_URL
+    ? ((await fetch(`${INDEXER_URL}/api/index/bids`, { cache: "no-store" }).then((r) => r.json())) as {
+        maker: Address;
+        app: Address;
+        strategyHash: Hex;
+        strategy: Hex;
+        shipped: { tx: Hex };
+      }[])
+        .reverse()
+        .map((b) => ({ args: b, transactionHash: b.shipped.tx }))
+    : await publicClient.getContractEvents({ address: d.aqua, abi: aquaAbi, eventName: "Shipped", fromBlock: BigInt(d.deployBlock) });
   const out: BidInfo[] = [];
   for (const l of logs) {
     if (l.args.app?.toLowerCase() !== d.aquaBidApp.toLowerCase()) continue;

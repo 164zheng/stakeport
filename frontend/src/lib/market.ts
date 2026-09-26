@@ -8,7 +8,7 @@ import {
 } from "@/generated/proofAbi";
 import { api } from "./api";
 import { publicClient, testClient, write } from "./chain";
-import { getDeployment } from "./config";
+import { INDEXER_URL, getDeployment } from "./config";
 
 export interface StakeOrder {
   seller: Address;
@@ -59,7 +59,33 @@ const wethAbi = [
 // Reads
 // ------------------------------------------------------------------------------------------------
 
-export async function listings(): Promise<Listing[]> {
+interface IndexedListing {
+  hash: Hex;
+  order: Record<string, string | number>;
+  policy: Address | null;
+  cancelled: boolean;
+  listed: { block: string };
+}
+
+const toOrder = (o: Record<string, string | number>): StakeOrder => ({
+  seller: o.seller as Address,
+  sourcePubkey: o.sourcePubkey as Hex,
+  sourceIndex: BigInt(o.sourceIndex),
+  priceMode: Number(o.priceMode),
+  price: BigInt(o.price),
+  minPayment: BigInt(o.minPayment),
+  expiry: BigInt(o.expiry),
+  nonce: BigInt(o.nonce),
+});
+
+/** Listed orders, from the indexer when configured (free RPC tiers cap eth_getLogs ranges). */
+async function listedOrders(): Promise<{ hash: Hex; order: StakeOrder; blockNumber: bigint; cancelled?: boolean }[]> {
+  if (INDEXER_URL) {
+    const rows = (await fetch(`${INDEXER_URL}/api/index/listings`, { cache: "no-store" }).then((r) => r.json())) as IndexedListing[];
+    return rows
+      .map((r) => ({ hash: r.hash, order: toOrder(r.order), blockNumber: BigInt(r.listed.block), cancelled: r.cancelled }))
+      .reverse();
+  }
   const d = await getDeployment();
   const logs = await publicClient.getContractEvents({
     address: d.market,
@@ -67,27 +93,35 @@ export async function listings(): Promise<Listing[]> {
     eventName: "OrderListed",
     fromBlock: BigInt(d.deployBlock),
   });
+  return logs.map((l) => ({ hash: l.args.orderHash as Hex, order: l.args.order as unknown as StakeOrder, blockNumber: l.blockNumber }));
+}
+
+export async function listings(): Promise<Listing[]> {
+  const d = await getDeployment();
+  const orders = await listedOrders();
   const now = (await publicClient.getBlock()).timestamp;
   const out: Listing[] = [];
-  for (const log of logs) {
-    const order = log.args.order as unknown as StakeOrder;
+  for (const log of orders) {
+    const order = log.order;
     const [used, active, policy] = await Promise.all([
       publicClient.readContract({ address: d.market, abi: nativeStakeMarketAbi, functionName: "nonceUsed", args: [order.seller, order.nonce] }),
       publicClient.readContract({ address: d.market, abi: nativeStakeMarketAbi, functionName: "activeTradeBySource", args: [order.sourceIndex] }),
-      publicClient.readContract({ address: d.market, abi: nativeStakeMarketAbi, functionName: "policyOf", args: [log.args.orderHash as Hex] }),
+      publicClient.readContract({ address: d.market, abi: nativeStakeMarketAbi, functionName: "policyOf", args: [log.hash] }),
     ]);
     const state: OrderState = used ? "filled" : order.expiry < now ? "expired" : active !== 0n ? "trading" : "open";
-    out.push({ hash: log.args.orderHash as Hex, order, state, blockNumber: log.blockNumber, policy: policy as Address });
+    out.push({ hash: log.hash, order, state: log.cancelled ? "cancelled" : state, blockNumber: log.blockNumber, policy: policy as Address });
   }
-  // A filled nonce may also be a cancellation; mark those via the cancel event.
-  const cancels = await publicClient.getContractEvents({
-    address: d.market,
-    abi: nativeStakeMarketAbi,
-    eventName: "OrderCancelled",
-    fromBlock: BigInt(d.deployBlock),
-  });
-  for (const c of cancels) {
-    for (const l of out) if (l.order.seller === c.args.seller && l.order.nonce === c.args.nonce) l.state = "cancelled";
+  if (!INDEXER_URL) {
+    // A used nonce may also be a cancellation; mark those via the cancel event.
+    const cancels = await publicClient.getContractEvents({
+      address: d.market,
+      abi: nativeStakeMarketAbi,
+      eventName: "OrderCancelled",
+      fromBlock: BigInt(d.deployBlock),
+    });
+    for (const c of cancels) {
+      for (const l of out) if (l.order.seller === c.args.seller && l.order.nonce === c.args.nonce) l.state = "cancelled";
+    }
   }
   return out.reverse();
 }
@@ -105,6 +139,14 @@ export async function getTrade(id: bigint): Promise<Trade> {
 
 export async function trades(): Promise<Trade[]> {
   const d = await getDeployment();
+  if (INDEXER_URL) {
+    const rows = (await fetch(`${INDEXER_URL}/api/index/trades`, { cache: "no-store" }).then((r) => r.json())) as {
+      tradeId: string;
+      filled: { tx: Hex };
+    }[];
+    // statuses are read from the contract; the indexer only supplies ids and transactions
+    return Promise.all(rows.map(async (r) => ({ ...(await getTrade(BigInt(r.tradeId))), fillTx: r.filled.tx })));
+  }
   const logs = await publicClient.getContractEvents({
     address: d.market,
     abi: nativeStakeMarketAbi,

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { parseEther } from "viem";
+import { parseEther, zeroAddress } from "viem";
+import { nativeStakeMarketAbi } from "@/generated/abis";
+import { getDeployment } from "@/lib/config";
 import { QueuePanel, useQueues } from "@/components/QueuePanel";
 import { Badge, Button, Card, ErrorBox, Mono } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -14,7 +16,6 @@ import {
   fillWithEth,
   getTrade,
   listOrder,
-  listings,
   relayAccepted,
   relayDelivered,
   type Listing,
@@ -113,9 +114,14 @@ export default function DemoPage() {
         expiry: now + 30n * 86400n,
         nonce: BigInt(Date.now()),
       };
-      await listOrder(order);
-      const l = (await listings()).find((x) => x.order.nonce === order.nonce);
-      setListing(l);
+      const { hash: txHash } = await listOrder(order);
+      // build the listing from the chain directly (the indexer may lag by a few seconds)
+      const d = await getDeployment();
+      const [hash, receipt] = await Promise.all([
+        publicClient.readContract({ address: d.market, abi: nativeStakeMarketAbi, functionName: "hashOrder", args: [order] }),
+        publicClient.getTransactionReceipt({ hash: txHash }),
+      ]);
+      setListing({ hash: hash as `0x${string}`, order, state: "open", blockNumber: receipt.blockNumber, policy: zeroAddress });
       add(`Listed at ${price.toFixed(4)} WETH (the buyer's break-even vs the entry queue)`);
     });
 
