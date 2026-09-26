@@ -31,7 +31,7 @@ export default function BidsPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [targets, setTargets] = useState<ValidatorInfo[]>([]);
   const [target, setTarget] = useState<number>();
-  const [pricePct, setPricePct] = useState("99.5");
+  const [pricePct, setPricePct] = useState("100.2");
   const [budget, setBudget] = useState("64");
   const [busy, setBusy] = useState<string>();
   const [steps, setSteps] = useState<string[]>([]);

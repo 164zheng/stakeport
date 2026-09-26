@@ -8,6 +8,8 @@ import { errorMessage } from "@/lib/chain";
 import { getDeployment, type Deployment } from "@/lib/config";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
 import { WorldGate } from "@/components/WorldGate";
+import { useQueues } from "@/components/QueuePanel";
+import { fairValue } from "@/lib/queues";
 import { fillWithWeth, isVerifiedMarket, listings, quote, type Listing } from "@/lib/market";
 import { buyWithUsdc, stakeReference, usdcQuoteForListing } from "@/lib/uniswap";
 import { usePersona } from "@/lib/persona";
@@ -85,6 +87,8 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
   }
 
   const amountWei = source ? BigInt(source.effectiveBalanceGwei) * 10n ** 9n : 0n;
+  const q = useQueues();
+  const fv = q && source ? fairValue(q, source.effectiveBalanceGwei / 1e9) : undefined;
   const t = targets?.find((x) => x.index === target);
 
   return (
@@ -107,7 +111,11 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
           <div className="text-xs text-muted">You pay</div>
           <div className="text-2xl font-semibold">{payment !== undefined ? eth(payment) : "…"} WETH</div>
           {payment !== undefined && amountWei > 0n && (
-            <div className="text-xs text-good">{pct(1 - Number(payment) / Number(amountWei))} below face value</div>
+            <div className={`text-xs ${payment <= amountWei ? "text-good" : "text-warn"}`}>
+              {payment <= amountWei
+                ? `${pct(1 - Number(payment) / Number(amountWei))} below face value`
+                : `${pct(Number(payment) / Number(amountWei) - 1, 3)} premium over face value`}
+            </div>
           )}
           {reference !== undefined && (
             <div className="text-xs text-muted">
@@ -121,6 +129,30 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
           {listing && <Badge value={listing.state} />}
         </div>
       </Card>
+
+      {fv && q && payment !== undefined && source && (
+        <Card className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <div className="text-xs text-muted">Deposit {gweiToEth(source.effectiveBalanceGwei)} ETH yourself</div>
+            <div className="text-lg font-semibold">active in {q.entry.waitDays.toFixed(1)} days</div>
+            <div className="text-xs text-muted">entry queue, no rewards meanwhile</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted">Buy this stake</div>
+            <div className="text-lg font-semibold text-accent">delivered in {q.consolidation.deliveryDays.toFixed(1)} days</div>
+            <div className="text-xs text-muted">already active, earns from delivery</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted">Value of skipping {fv.buyerGainDays.toFixed(1)} days</div>
+            <div className="text-lg font-semibold">
+              up to {(fv.buyerMax - source.effectiveBalanceGwei / 1e9).toFixed(4)} ETH
+            </div>
+            <div className={`text-xs ${Number(payment) / 1e18 <= fv.buyerMax ? "text-good" : "text-bad"}`}>
+              {Number(payment) / 1e18 <= fv.buyerMax ? "this price is below your break-even" : "priced above break-even vs depositing"}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {listing && buyer && isVerifiedMarket(listing) && <WorldGate buyer={buyer} onEligible={onEligible} />}
 

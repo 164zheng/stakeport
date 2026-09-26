@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { QueuePanel } from "@/components/QueuePanel";
 import { Badge, Card, ErrorBox, Mono } from "@/components/ui";
 import { api, type ValidatorInfo } from "@/lib/api";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
@@ -40,7 +41,7 @@ export default function MarketPage() {
         <h1 className="max-w-3xl text-4xl font-semibold leading-tight tracking-tight">
           Buy and sell <span className="text-accent">native</span> Ethereum stake.
           <br />
-          No exit queue. No LST. No custodian.
+          Skip the entry queue. No LST. No custodian.
         </h1>
         <p className="max-w-2xl text-muted">
           A validator&apos;s active stake moves straight into the buyer&apos;s validator with an EIP-7251 consolidation. Payment
@@ -58,6 +59,8 @@ export default function MarketPage() {
           ))}
         </div>
       </section>
+
+      <QueuePanel />
 
       <section className="space-y-4">
         <div className="flex items-end justify-between">
@@ -104,7 +107,11 @@ export default function MarketPage() {
                     <div className="text-xl font-semibold">
                       {livePrice ? `${eth(livePrice)} WETH` : `LST −${Number(l.order.price) / 100}%`}
                     </div>
-                    {discount !== undefined && <div className="text-xs text-good">{pct(discount)} discount</div>}
+                            {discount !== undefined && (
+                      <div className={`text-xs ${discount >= 0 ? "text-good" : "text-warn"}`}>
+                        {discount >= 0 ? `${pct(discount)} discount` : `${pct(-discount)} premium`}
+                      </div>
+                    )}
                     {!fixed && (
                       <div className="text-xs text-muted">LST market −{Number(l.order.price) / 100}% · Uniswap TWAP</div>
                     )}
