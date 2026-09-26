@@ -6,6 +6,7 @@ import { usePersona } from "@/lib/persona";
 import { short } from "@/lib/format";
 
 const links = [
+  { href: "/demo", label: "Demo" },
   { href: "/", label: "Market" },
   { href: "/sell", label: "Sell" },
   { href: "/bids", label: "Bids" },

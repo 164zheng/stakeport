@@ -26,6 +26,15 @@ Built at ETHGlobal Tokyo 2026 (Classic Track).
 
 No LST, no custodian, no validator key transfer.
 
+## Why now: active stake is worth a premium
+
+At the demo's mainnet slot, **1.67M ETH waits ~29 days in the entry queue** earning nothing, while a StakePort
+purchase is delivered through the consolidation queue in **~2.8 days** and the exit queue is nearly empty. A buyer
+skipping ~26 days of the entry queue can rationally pay up to ~0.2% over face value; a seller exiting instead would
+be paid ~1.7 days sooner. StakePort computes this fair value band from the real beacon state
+([`proof-generator/src/queues.ts`](proof-generator/src/queues.ts), [`frontend/src/lib/queues.ts`](frontend/src/lib/queues.ts))
+and shows it on the market, sell and buy pages.
+
 ## How a trade settles
 
 ```
@@ -84,24 +93,29 @@ cp frontend/.env.example frontend/.env.local   # optional: World ID app_id / rp_
 open http://localhost:3000
 ```
 
-The demo forks mainnet at the block of `contracts/test/fixtures/mainnet.json`, whose beacon root is in the
-fork's EIP-4788 buffer. Personas are real mainnet addresses: the seller is the withdrawal address of several
-real validators, the buyer owns a real 0x02 validator (the fork runs with `--auto-impersonate`).
+The demo forks mainnet **one block before a real consolidation request** (tx `0xb94605dc…1c06f6`, block 26058400,
+`contracts/test/fixtures/replay.json`, built by `proof-generator/src/replay.ts`). The seller persona is the operator
+that made that request; the buyer is an independent address with a 0x02 validator (the fork runs with
+`--auto-impersonate`). `DEMO_FIXTURE=mainnet ./scripts/dev.sh` uses the older `mainnet.json` fixture instead.
 
-Demo flow: **Sell** (enable 7702, list fixed or LST-relative) → **Market** → **Buy** (WETH or USDC via
-Uniswap v4) or **Bids** (ship an Aqua bid, match) → **Trades** (relay checkpoint 1 and 2) → **Portfolio**.
+Guided demo: open **`/demo`** and click through the four steps (script: [`docs/DEMO.md`](docs/DEMO.md), Q&A and
+threat model: [`docs/QA.md`](docs/QA.md)). Free exploration: **Sell** (enable 7702, list fixed or LST-relative, optional
+Verified Market) → **Market** → **Buy** (WETH or USDC via Uniswap v4) or **Bids** (ship an Aqua bid, match) →
+**Trades** (relay checkpoints) → **Portfolio**.
 
 CLI version of the same flow: `cd proof-generator && node scripts/e2e.ts` (with the stack running).
 
 ### What is real and what is simulated
 
-- **Real:** mainnet beacon state (slot 15294304, Fulu), validators, fill-time SSZ proofs, the EIP-4788 root
-  they verify against, the EIP-7251 predeploy, Uniswap v3/v4 pools and liquidity, Chainlink ETH/USD, the
-  official Aqua deployment.
-- **Simulated (labelled in the UI):** checkpoint 1 and 2 beacon states. A real consolidation takes 27h+ plus
-  the mainnet churn queue (~8.2k pending consolidations at the fixture slot), so the proof service applies the
-  consensus-layer transitions to the real state, seals a block header and injects its root into the fork's
-  EIP-4788 buffer. The contracts verify these with the same code path.
+- **Real:** mainnet beacon states (Fulu), validators, fill-time SSZ proofs, the EIP-4788 root they verify
+  against, the EIP-7251 predeploy, queue lengths, Uniswap v3/v4 pools and liquidity, Chainlink ETH/USD, the
+  official Aqua deployment, World ID (production World App).
+- **Checkpoint 1 of the replayed pair is real:** the proof comes from the mainnet beacon state (slot 15296898)
+  that processed the same request. Its root is written into the fork's EIP-4788 buffer because it is newer than
+  the fork block (`test/fork/Replay.fork.t.sol` proves it at mainnet's own 4788 timestamp).
+- **Simulated (labelled in the UI):** checkpoint 2 (delivery is ~3 days after acceptance on mainnet) and
+  checkpoint 1 for any other pair. The proof service applies the consensus-layer transitions to the real state,
+  seals a block header and injects its root; the contracts verify these with the same code path.
 - On the fork the seller's EIP-7702 delegation is set with `anvil_setCode` because we do not hold the real
   seller's key; in production the wallet signs a 7702 authorization (covered by `test_fill_withRealEip7702Authorization`).
 
@@ -109,8 +123,8 @@ CLI version of the same flow: `cd proof-generator && node scripts/e2e.ts` (with 
 
 ```bash
 cd contracts && forge test                 # 93 unit tests; fork tests are skipped without MAINNET_RPC_URL
-set -a; . ../.env; set +a; forge test      # + 22 mainnet fork tests (115 total)
-cd proof-generator && pnpm test            # gindex parity with Solidity, proof and ABI checks
+set -a; . ../.env; set +a; forge test      # + 25 mainnet fork tests (118 total)
+cd proof-generator && pnpm test            # gindex parity with Solidity, proof/ABI checks, queue math
 ```
 
 - `BeaconProofs.t.sol`: SSZ verification against **real mainnet proofs** (validators, balances, pending
@@ -121,6 +135,9 @@ cd proof-generator && pnpm test            # gindex parity with Solidity, proof 
   account), Verified Market listings reject unverified buyers and check the buyer, not the payer.
 - `fork/Market.fork.t.sol`: fills a real validator's stake with real proofs; the real predeploy queues the
   request with the seller as source address.
+- `fork/Replay.fork.t.sol`: **checkpoint 1 with real mainnet data**: fills the pair of a real consolidation one
+  block before mainnet did and proves acceptance with the real post-request beacon state; the same state
+  refutes a false "not accepted" claim.
 - `fork/Uniswap.fork.t.sol`: TWAP oracle; USDC → native stake in one v4 swap; hook guards.
 - `fork/Aqua.fork.t.sol`: bids on the official Aqua registry; wallet-to-escrow pull; price, budget, dock,
   impostor and redirect protections.
