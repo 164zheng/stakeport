@@ -16,7 +16,8 @@ the trade page with their wallet. RPC: publicnode.
 | Stake7702Delegate | `0xc1902A85406F290daa4631519370A821e5b6D79C` |
 | BeaconOracle | `0x37223365EbDA73D3e3eaEAa4Dac879848564a289` |
 | WETH9 | `0x1259859978c1709E2403B00589B1D07c667E4c7B` |
-| WorldIdEligibility | `0xd02D8c4cFE51413F72Aa1D43826E1fF8aC6D4fCB` |
+| WorldIdEligibility (NFC document) | `0xd02D8c4cFE51413F72Aa1D43826E1fF8aC6D4fCB` |
+| WorldIdEligibility (Identity Check, preview) | `0x3E8aCEec6db819fDD645Cf282918C1107Eef8C72` |
 | AquaRouter (1inch, unmodified) | `0x38C33AAb6791bf018e8F197f694d92BD9b682672` |
 | SwapVMRouter v1.0.2 (1inch, unmodified) | `0xB047F7B28f6470479A7bf5A57Ae212103E7521c5` |
 | AquaStakeBidApp | `0x815D39f698b7493a7981C45e867ee708186e941F` |

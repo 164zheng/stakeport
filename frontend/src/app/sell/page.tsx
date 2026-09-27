@@ -49,6 +49,13 @@ export default function SellPage() {
     refresh().catch((e) => setError(e.message));
   }, [refresh]);
 
+  // listing options depend only on the deployment, so show them before a wallet is connected
+  useEffect(() => {
+    getDeployment()
+      .then(setDeployment)
+      .catch(() => {});
+  }, []);
+
   const v = validators?.find((x) => x.index === selected);
   const amountEth = v ? v.effectiveBalanceGwei / 1e9 : 0;
   const market = useQueues();
