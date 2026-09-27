@@ -4,6 +4,10 @@
 
 Built at ETHGlobal Tokyo 2026 (Classic Track).
 
+**Live:** [stakeport.vercel.app](https://stakeport.vercel.app), the frontend on the Hoodi testnet deployment
+([addresses](docs/TESTNET.md)). The queue panel shows a mainnet snapshot, since Hoodi's queues are nearly empty.
+The full trading flow (listing, buying and both checkpoints) is demoed on a mainnet fork; see [Run it](#run-it).
+
 ```
                      Native stake delivery-versus-payment
 
