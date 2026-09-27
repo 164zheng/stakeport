@@ -8,6 +8,8 @@ import {
   ACCEPTED_IDENTIFIERS,
   CREDENTIAL_LABEL,
   ELIGIBILITY_TTL_SECONDS,
+  IDENTITY_CHECK_LABEL,
+  SANCTIONED_COUNTRIES,
   worldAction,
   deployment,
   worldConfig,
@@ -16,17 +18,36 @@ import {
 const fail = (status: number, error: string, detail?: unknown) => NextResponse.json({ error, detail }, { status });
 
 /**
- * Verifies a World ID Passport proof and returns a signed eligibility attestation for
+ * Verifies a World ID NFC document (or Identity Check) proof and returns a signed eligibility attestation for
  * WorldIdEligibility.attest(). The proof must be bound to the buyer's address via its signal.
  */
 export async function POST(request: Request) {
   const c = worldConfig();
   if (!c.configured) return fail(503, "World ID is not configured");
-  const { account, idkitResponse } = (await request.json()) as { account: string; idkitResponse: IDKitResult };
+  const { account, idkitResponse, issuingCountry } = (await request.json()) as {
+    account: string;
+    idkitResponse: IDKitResult;
+    issuingCountry?: string;
+  };
   if (!isAddress(account)) return fail(400, "invalid account");
 
+  // Identity Check mode (local, preview): World App attested that the document's issuing country equals the one
+  // the buyer stated; reject sanctioned jurisdictions. Limitation: the requested attribute is chosen client-side and
+  // is not covered by our RP signature, so a modified client could claim a different country than it proved.
+  if (issuingCountry !== undefined) {
+    if (process.env.NEXT_PUBLIC_WORLD_IDENTITY_CHECK !== "1") return fail(400, "Identity Check is not enabled");
+    const country = (issuingCountry ?? "").toUpperCase();
+    if (!/^[A-Z]{3}$/.test(country)) return fail(400, "issuing country required (ISO 3166-1 alpha-3)");
+    if (SANCTIONED_COUNTRIES.has(country)) return fail(403, "sanctioned_jurisdiction", country);
+    if (!("identity_attested" in idkitResponse) || idkitResponse.identity_attested !== true) {
+      return fail(403, "identity_not_attested");
+    }
+  }
+
   // 1. The proof must be for our action and environment.
-  if (!("action" in idkitResponse) || idkitResponse.action !== worldAction()) return fail(400, "wrong action");
+  if (!("action" in idkitResponse) || idkitResponse.action !== worldAction(issuingCountry !== undefined ? "identity" : undefined)) {
+    return fail(400, "wrong action");
+  }
   if (idkitResponse.environment !== c.environment) return fail(400, `expected ${c.environment} proof`);
 
   // 2. Only a passport credential (or its legacy document fallback) qualifies.
@@ -55,13 +76,16 @@ export async function POST(request: Request) {
   if (verified.environment && verified.environment !== c.environment) return fail(403, "environment mismatch");
 
   // 5. Sign the attestation for the onchain eligibility registry.
-  const { worldEligibility } = deployment();
-  if (!worldEligibility) return fail(500, "WorldIdEligibility not deployed");
+  // Identity Check proofs are attested to the Identity Check policy; NFC document proofs to the document policy.
+  const identity = issuingCountry !== undefined;
+  const d = deployment();
+  const policy = identity ? d.worldIdentityCheck : d.worldEligibility;
+  if (!policy) return fail(500, "WorldIdEligibility not deployed");
   const nullifierHex = ("nullifier" in item ? item.nullifier : verified.nullifier) as string;
   const attestation = {
     account: getAddress(account),
     nullifier: pad(toHex(BigInt(nullifierHex)), { size: 32 }),
-    credential: keccak256(toHex(CREDENTIAL_LABEL)),
+    credential: keccak256(toHex(identity ? IDENTITY_CHECK_LABEL : CREDENTIAL_LABEL)),
     // chain time: the demo fork fast-forwards during settlement
     expiresAt: (await chainTime()) + BigInt(ELIGIBILITY_TTL_SECONDS),
   };
@@ -71,7 +95,7 @@ export async function POST(request: Request) {
       name: "StakePort WorldIdEligibility",
       version: "1",
       chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 1),
-      verifyingContract: worldEligibility,
+      verifyingContract: policy,
     },
     types: {
       Attestation: [

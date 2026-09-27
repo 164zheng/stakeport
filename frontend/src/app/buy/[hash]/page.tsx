@@ -12,7 +12,7 @@ import { WorldGate } from "@/components/WorldGate";
 import { MyValidators } from "@/components/WalletBits";
 import { useQueues } from "@/components/QueuePanel";
 import { fairValue } from "@/lib/queues";
-import { fillWithEth, fillWithWeth, isVerifiedMarket, listings, quote, type Listing } from "@/lib/market";
+import { fillWithEth, fillWithWeth, isVerifiedMarket, listings, policyKind, quote, type Listing } from "@/lib/market";
 import { buyWithUsdc, stakeReference, usdcQuoteForListing } from "@/lib/uniswap";
 import { usePersona } from "@/lib/persona";
 
@@ -37,6 +37,10 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
   const [steps, setSteps] = useState<string[]>([]);
   const [eligible, setEligible] = useState<boolean>();
   const [dialog, setDialog] = useState<Explained>();
+  const [kind, setKind] = useState<"document" | "identity" | null>(null);
+  useEffect(() => {
+    if (listing) policyKind(listing).then(setKind).catch(() => setKind("document"));
+  }, [listing]);
   const onEligible = useCallback((e: boolean) => setEligible(e), []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -184,7 +188,7 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
 
       {listing && buyer && isVerifiedMarket(listing) && (
         <div id="world-gate" className="scroll-mt-24">
-          <WorldGate buyer={buyer} onEligible={onEligible} />
+          {kind && <WorldGate buyer={buyer} policy={listing.policy} kind={kind} onEligible={onEligible} />}
         </div>
       )}
 

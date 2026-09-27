@@ -7,6 +7,7 @@ import { Badge, Card, ErrorBox, Mono } from "@/components/ui";
 import { api, type ValidatorInfo } from "@/lib/api";
 import { eth, gweiToEth, pct, short } from "@/lib/format";
 import { isVerifiedMarket, listings, quote, trades, type Listing } from "@/lib/market";
+import { getDeployment } from "@/lib/config";
 
 export default function MarketPage() {
   const [items, setItems] = useState<Listing[]>();
@@ -15,6 +16,12 @@ export default function MarketPage() {
   /** stake fixed at fill time, per source validator (its live balance is 0 once delivered) */
   const [traded, setTraded] = useState<Record<number, bigint>>({});
   const [error, setError] = useState<string>();
+  const [identityPolicy, setIdentityPolicy] = useState<string>();
+  useEffect(() => {
+    getDeployment()
+      .then((d) => setIdentityPolicy(d.worldIdentityCheck?.toLowerCase()))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     listings()
@@ -98,7 +105,9 @@ export default function MarketPage() {
                   </div>
                   <div className="flex gap-1.5">
                     {isVerifiedMarket(l) && (
-                      <span className="rounded-full bg-warn/15 px-2.5 py-0.5 text-xs font-medium text-warn">World ID</span>
+                      <span className="rounded-full bg-warn/15 px-2.5 py-0.5 text-xs font-medium text-warn">
+                        {identityPolicy && l.policy.toLowerCase() === identityPolicy ? "World ID · Identity Check" : "World ID"}
+                      </span>
                     )}
                     <Badge value={l.state} />
                   </div>

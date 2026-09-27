@@ -26,6 +26,8 @@ export interface Deployment {
   aqua?: `0x${string}`;
   aquaBidApp?: `0x${string}`;
   worldEligibility?: `0x${string}`;
+  /** second policy (local demo): World ID Identity Check, document not issued by a sanctioned jurisdiction */
+  worldIdentityCheck?: `0x${string}`;
 }
 
 let cached: Promise<Deployment> | undefined;

@@ -208,23 +208,32 @@ export async function fundPersona(a: Address, ethAmount = "100") {
 // Writes
 // ------------------------------------------------------------------------------------------------
 
-export async function listOrder(order: StakeOrder, verifiedOnly = false) {
+/** `verified`: the buyer requirement the seller picked (NFC document, or Identity Check on the local demo). */
+export async function listOrder(order: StakeOrder, verified: false | "document" | "identity" = false) {
   const d = await getDeployment();
   await fundPersona(order.seller);
-  if (verifiedOnly) {
-    if (!d.worldEligibility) throw new Error("WorldIdEligibility not deployed");
+  if (verified) {
+    const policy = verified === "identity" ? d.worldIdentityCheck : d.worldEligibility;
+    if (!policy) throw new Error(`World ID ${verified} policy not deployed`);
     return write({
       account: order.seller,
       address: d.market,
       abi: nativeStakeMarketAbi,
       functionName: "listOrderWithPolicy",
-      args: [order, d.worldEligibility],
+      args: [order, policy],
     });
   }
   return write({ account: order.seller, address: d.market, abi: nativeStakeMarketAbi, functionName: "listOrder", args: [order] });
 }
 
 export const isVerifiedMarket = (l: Listing) => l.policy !== "0x0000000000000000000000000000000000000000";
+
+/** Which World ID requirement a Verified Market listing uses. */
+export async function policyKind(l: Listing): Promise<"document" | "identity" | null> {
+  if (!isVerifiedMarket(l)) return null;
+  const d = await getDeployment();
+  return d.worldIdentityCheck && l.policy.toLowerCase() === d.worldIdentityCheck.toLowerCase() ? "identity" : "document";
+}
 
 export async function cancelOrder(seller: Address, nonce: bigint) {
   const d = await getDeployment();

@@ -6,8 +6,10 @@ import { join } from "node:path";
  * World ID action. World ID 4.0 uniqueness proofs are one-time per (user, action), so every fresh demo
  * deployment uses its own action (scripts/export-frontend.sh writes `worldAction` into deployment.json).
  */
-export function worldAction(): string {
-  return process.env.WORLD_ACTION ?? deployment().worldAction ?? "stakeport-verified-market";
+export function worldAction(kind?: "identity"): string {
+  const base = process.env.WORLD_ACTION ?? deployment().worldAction ?? "stakeport-verified-market";
+  // Identity Check uses its own action: a World ID proof is one-time per (user, action)
+  return kind === "identity" ? `${base}-idcheck` : base;
 }
 /** Credential the Verified Market policy requires (must match WorldIdEligibility.requiredCredential). */
 export const CREDENTIAL_LABEL = "world-id:nfc-document";
@@ -35,6 +37,15 @@ export function worldConfig() {
   };
 }
 
-export function deployment(): { worldEligibility?: `0x${string}`; worldAction?: string } {
+export function deployment(): { worldEligibility?: `0x${string}`; worldIdentityCheck?: `0x${string}`; worldAction?: string } {
   return JSON.parse(readFileSync(join(process.cwd(), "public", "deployment.json"), "utf8"));
 }
+
+/**
+ * Jurisdictions the Verified Market rejects in Identity Check mode (ISO 3166-1 alpha-3). Demo list modelled on
+ * comprehensive sanctions programs; a real deployment would take the seller's own list.
+ */
+/** Credential of the Identity Check policy (script/Deploy.s.sol deploys a second WorldIdEligibility for it). */
+export const IDENTITY_CHECK_LABEL = "world-id:identity-check";
+
+export const SANCTIONED_COUNTRIES = new Set(["CUB", "IRN", "PRK", "SYR", "RUS", "BLR"]);

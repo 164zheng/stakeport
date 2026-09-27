@@ -113,7 +113,7 @@ export default function PortfolioPage() {
       }
     }
     if (role === "buyer" && world && !world.eligible && verifiedListings > 0) {
-      out.push({ level: "now", text: `${verifiedListings} Verified Market listing(s) need a World ID Passport: verify from a listing`, href: "/" });
+      out.push({ level: "now", text: `${verifiedListings} Verified Market listing(s) need World ID verification: verify from a listing`, href: "/" });
     }
     if (role === "buyer" && world?.eligible && Number(world.until) - now < 3 * 86400) {
       out.push({ level: "soon", text: `World ID eligibility expires in ${duration(Number(world.until) - now)}: re-verify to keep Verified Market access` });
@@ -138,7 +138,7 @@ export default function PortfolioPage() {
         <div className="flex items-center gap-3 text-xs text-muted">
           {role === "buyer" && world && (
             <span className={world.eligible ? "text-good" : ""}>
-              World ID Passport: {world.eligible ? `verified until ${new Date(Number(world.until) * 1000).toLocaleDateString()}` : "not verified"}
+              World ID: {world.eligible ? `verified until ${new Date(Number(world.until) * 1000).toLocaleDateString()}` : "not verified"}
             </span>
           )}
           <span>ETH {price ? usd(price) : "…"} (Chainlink)</span>

@@ -7,6 +7,7 @@ import { Badge, Button, Card, ErrorBox, Mono } from "@/components/ui";
 import { validatorsOf, type ValidatorInfo } from "@/lib/api";
 import { errorMessage, publicClient } from "@/lib/chain";
 import { getDeployment, type Deployment } from "@/lib/config";
+import { IDENTITY_CHECK } from "@/lib/world";
 import { gweiToEth, pct, short } from "@/lib/format";
 import { enableDelegation, isDelegated, listOrder, type StakeOrder } from "@/lib/market";
 import { usePersona } from "@/lib/persona";
@@ -26,6 +27,7 @@ export default function SellPage() {
   const [bps, setBps] = useState("30");
   const [minPayment, setMinPayment] = useState("31");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [requirement, setRequirement] = useState<"document" | "identity">("document");
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState<string>();
   const [listed, setListed] = useState<string>();
@@ -82,7 +84,7 @@ export default function SellPage() {
         expiry: now + 30n * 86400n,
         nonce: BigInt(Date.now()),
       };
-      const { hash } = await listOrder(order, verifiedOnly);
+      const { hash } = await listOrder(order, verifiedOnly ? requirement : false);
       setListed(hash);
     } catch (e) {
       setError(errorMessage(e));
@@ -269,12 +271,34 @@ export default function SellPage() {
                 onChange={(e) => setVerifiedOnly(e.target.checked)}
               />
               <span>
-                <span className="font-medium">Verified Market: World ID Passport holders only</span>
+                <span className="font-medium">
+                  {IDENTITY_CHECK ? "Verified Market: World ID verified buyers only" : "Verified Market: World ID NFC document holders only"}
+                </span>
                 <span className="block text-xs text-muted">
                   For sellers who must avoid counterparties in sanctioned jurisdictions. Enforced onchain at fill time.
                 </span>
               </span>
             </label>
+            {verifiedOnly && IDENTITY_CHECK && deployment?.worldIdentityCheck && (
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {(
+                  [
+                    ["document", "NFC document", "Buyer holds a passport or My Number Card (one account per document; not KYC)"],
+                    ["identity", "Identity Check (preview)", "Buyer's document was not issued by a sanctioned jurisdiction"],
+                  ] as const
+                ).map(([k, title, sub]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setRequirement(k)}
+                    className={`rounded-xl border px-3 py-2 text-left text-sm ${requirement === k ? "border-accent" : "border-line"}`}
+                  >
+                    <span className="block font-medium">{title}</span>
+                    <span className="block text-xs text-muted">{sub}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <Button className="mt-4 w-full" onClick={onList} loading={busy === "list"} disabled={!v || !delegated}>
               List validator #{v?.index ?? "…"}
             </Button>
