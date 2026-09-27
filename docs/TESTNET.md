@@ -6,7 +6,9 @@ Every remote proof is checked against the block header's state root before use, 
 
 ## Live deployment (Hoodi, chain 560048)
 
-Frontend: https://stakeport.vercel.app (Vercel; validator info from the public Lodestar node, RPC from publicnode).
+Frontend: https://stakeport.vercel.app (Vercel). Fill and checkpoint proofs, validator info and queue data are
+served by the site's own API routes from the public Lodestar node (no proof server); anyone can settle a trade from
+the trade page with their wallet. RPC: publicnode.
 
 | Contract | Address |
 |---|---|
@@ -15,6 +17,13 @@ Frontend: https://stakeport.vercel.app (Vercel; validator info from the public L
 | BeaconOracle | `0x37223365EbDA73D3e3eaEAa4Dac879848564a289` |
 | WETH9 | `0x1259859978c1709E2403B00589B1D07c667E4c7B` |
 | WorldIdEligibility | `0xd02D8c4cFE51413F72Aa1D43826E1fF8aC6D4fCB` |
+| AquaRouter (1inch, unmodified) | `0x38C33AAb6791bf018e8F197f694d92BD9b682672` |
+| SwapVMRouter v1.0.2 (1inch, unmodified) | `0xB047F7B28f6470479A7bf5A57Ae212103E7521c5` |
+| AquaStakeBidApp | `0x815D39f698b7493a7981C45e867ee708186e941F` |
+
+Hoodi has no official Aqua or SwapVM deployment, so `script/DeployAquaHoodi.s.sol` deploys the unmodified 1inch
+sources. Uniswap v4 is not on Hoodi either (and there is no liquid USDC pool), so the public site pays in ETH or
+WETH; the USDC route is shown on the mainnet fork.
 
 Deployed at block 3698658 with a 1-hour fill proof age and a 2-day accept window (`deployments/hoodi.json`).
 With `HOODI_RPC_URL` and `RELAYER_PRIVATE_KEY` in `.env`, `./scripts/hoodi.sh` starts the proof server, indexer,

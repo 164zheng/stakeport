@@ -196,6 +196,9 @@ Tests: [`test/fork/Uniswap.fork.t.sol`](contracts/test/fork/Uniswap.fork.t.sol).
 
 ### 1inch Aqua + SwapVM
 
+Powered by Aqua — © Degensoft Ltd 2025 (unmodified AquaRouter and SwapVMRouter, deployed from the official sources
+on the fork and on Hoodi).
+
 [`AquaStakeBidApp.sol`](contracts/src/aqua/AquaStakeBidApp.sol) is an Aqua app for **standing bids on native
 stake**, priced by **1inch SwapVM programs**.
 
