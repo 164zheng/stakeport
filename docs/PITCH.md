@@ -4,7 +4,7 @@ Honesty rules for every pitch: checkpoint 1 in the fork demo is real mainnet bea
 simulated fast-forward; on Hoodi the contracts are deployed and a live third-party consolidation was proven through
 checkpoint 1 and the delivery predicate, not a StakePort trade. World is a document credential, not KYC.
 
-## Uniswap Foundation (~3 min)
+## Uniswap Foundation (~3.5 min)
 
 **Hook.** "What if a Uniswap swap could buy something that isn't a token at all? StakePort uses a v4 hook to buy
 native Ethereum validator stake: USDC in, stake delivered to your validator, in one swap."
@@ -23,6 +23,19 @@ market for that stake, and Uniswap is how buyers pay."
   EIP-7702-delegated address. If any proof fails, the whole swap reverts."
 - "Leftover ETH is refunded. The swapper gets no output token: the output is stake on the consensus layer."
 
+**Why a hook, not just a swap (45s).** "There are three ways to let someone pay for stake in USDC.
+- **Two transactions:** swap USDC to ETH on Uniswap, then buy. Between the two, the stake can sell to someone
+  else or the quote can move, and the buyer is left holding ETH they didn't want. Not atomic.
+- **Our own router contract** that calls Uniswap and then the market. That is atomic, but it's a private entry
+  point: only our frontend knows to call it, and it adds another contract that holds approvals and tokens.
+- **A v4 hook.** The purchase *is* a Uniswap swap. The entry point is a pool in the PoolManager, so anything that
+  speaks v4 (a wallet, an aggregator, the Universal Router) can route into it with hookData. Flash accounting
+  settles everything inside one `unlock`: the USDC goes through the canonical pool, the ETH is taken by the hook
+  and never sits in an intermediate contract, and if a beacon proof fails, the swap itself reverts. The buyer
+  pays exactly the swap price or nothing happens.
+So the hook turns 'buy native stake' into 'swap USDC for stake', using Uniswap's liquidity and settlement instead
+of building our own."
+
 **Pricing (20s).** "Sellers can price relative to the LST market. We read a 30-minute TWAP from the v3
 wstETH/WETH 0.01% pool through `observe()`, and the market evaluates it at fill time, so the price can't be moved
 within a block."
@@ -35,8 +48,14 @@ fork, with fork tests. Our feedback is in FEEDBACK.md. The single biggest ask: s
 importable package with a BeforeSwapDelta sign table."
 
 **Likely questions**
-- *Why a hook, not a router?* "The buyer's entry point is a normal v4 swap: any v4-aware wallet or aggregator can
-  route into it with hookData, and the purchase is atomic with the price it got."
+- *Why a hook, not a router?* "A router contract could be atomic too, but it would be a private entry point that
+  only our UI calls. With a hook, the purchase is a normal v4 swap: any v4-aware wallet, aggregator or the
+  Universal Router can route into it with hookData, settlement uses flash accounting with no intermediate custody,
+  and the proof check reverts the swap itself. In the demo we use a minimal router only to pass hookData."
+- *Why a zero-liquidity pool?* "The pool is an address in the PoolManager, not a market. Liquidity stays in the
+  canonical ETH/USDC pool; adding liquidity to ours reverts, so there's nothing to drain and no fragmentation."
+- *Couldn't the hook be abused by other swappers?* "It only accepts exact-input USDC-to-ETH swaps with a valid
+  order and proofs in hookData; anything else reverts, and it keeps no funds between swaps."
 - *MEV / slippage?* "The swapper sets the minimum; the stake price is fixed by the order or the TWAP, and the
   consolidation can't be front-run into another target because the order binds the source and the proofs bind
   the target."
