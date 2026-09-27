@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, ErrorBox, Mono } from "@/components/ui";
 import { errorMessage, publicClient } from "@/lib/chain";
-import { MAINNET_GENESIS, SECONDS_PER_EPOCH } from "@/lib/config";
+import { IS_FORK, MAINNET_GENESIS, SECONDS_PER_EPOCH } from "@/lib/config";
 import { duration, eth, gweiToEth, short } from "@/lib/format";
 import { getTrade, refundExpired, relayAccepted, relayDelivered, trades, type Trade } from "@/lib/market";
 import { usePersona } from "@/lib/persona";
@@ -171,12 +171,14 @@ export default function TradePage({ params }: { params: Promise<{ id: string }> 
             {delivered && (
               <>
                 <ProofLine note={delivered} />
-                <p className="text-good">{gweiToEth(delivered.moved)} ETH moved to validator #{trade.targetIndex.toString()}</p>
+                {delivered.moved > 0 && (
+                  <p className="text-good">{gweiToEth(delivered.moved)} ETH moved to validator #{trade.targetIndex.toString()}</p>
+                )}
               </>
             )}
             {s === "Accepted" && (
               <Button onClick={onDelivered} loading={busy === "delivered"}>
-                Fast-forward to delivery & relay proof
+                {IS_FORK ? "Fast-forward to delivery & relay proof" : "Relay delivery proof"}
               </Button>
             )}
           </Step>
