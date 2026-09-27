@@ -54,6 +54,10 @@ contract Deploy is Script {
         // Attester = backend key that verifies World ID proofs with the Developer Portal.
         WorldIdEligibility worldEligibility =
             new WorldIdEligibility(vm.envAddress("WORLD_ATTESTER"), keccak256("world-id:nfc-document"));
+        // Second policy a seller can pick: World ID Identity Check (preview), document not issued by a sanctioned
+        // jurisdiction. Same attester, different credential, so each listing's requirement is enforced onchain.
+        WorldIdEligibility worldIdentityCheck =
+            new WorldIdEligibility(vm.envAddress("WORLD_ATTESTER"), keccak256("world-id:identity-check"));
         vm.stopBroadcast();
 
         string memory obj = "deployment";
@@ -69,6 +73,7 @@ contract Deploy is Script {
         vm.serializeAddress(obj, "aquaBidApp", address(aquaBidApp));
         vm.serializeAddress(obj, "swapVm", address(swapVm));
         vm.serializeAddress(obj, "worldEligibility", address(worldEligibility));
+        vm.serializeAddress(obj, "worldIdentityCheck", address(worldIdentityCheck));
         vm.serializeUint(obj, "stakePoolFee", U.stakeKey(address(hook)).fee);
         vm.serializeInt(obj, "stakePoolTickSpacing", U.stakeKey(address(hook)).tickSpacing);
         vm.serializeUint(obj, "liquidityPoolFee", U.liquidityKey().fee);
