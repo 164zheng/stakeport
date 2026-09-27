@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
-import { Badge, Button, Card, ErrorBox, Mono } from "@/components/ui";
+import { Badge, Button, Card, ErrorBox, ErrorDialog, Mono } from "@/components/ui";
+import { explainError, type Explained } from "@/lib/errors";
 import { api, validatorsOf, type ValidatorInfo } from "@/lib/api";
 import { errorMessage } from "@/lib/chain";
 import { getDeployment, type Deployment } from "@/lib/config";
@@ -35,6 +36,7 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
   const [reference, setReference] = useState<bigint>();
   const [steps, setSteps] = useState<string[]>([]);
   const [eligible, setEligible] = useState<boolean>();
+  const [dialog, setDialog] = useState<Explained>();
   const onEligible = useCallback((e: boolean) => setEligible(e), []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -84,11 +86,10 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
       router.push(`/trades/${id}`);
     } catch (e) {
       const msg = errorMessage(e);
-      setError(
-        msg.includes("BuyerNotEligible")
-          ? "Rejected onchain (BuyerNotEligible): this Verified Market listing only accepts buyers with a World ID Passport attestation."
-          : msg,
-      );
+      const explained = explainError(msg);
+      setError(explained ? `${explained.title}: ${explained.detail}` : msg);
+      setDialog(explained ?? { title: "Purchase failed", body: "The transaction was not sent: it would revert.", detail: msg });
+      setSteps([]);
       setBusy(false);
     }
   }
@@ -108,6 +109,23 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
         </p>
       </div>
       <ErrorBox error={error} />
+      {dialog && (
+        <ErrorDialog
+          {...dialog}
+          onClose={() => setDialog(undefined)}
+          action={
+            dialog.needsWorldId
+              ? {
+                  label: "Verify with World ID",
+                  onClick: () => {
+                    setDialog(undefined);
+                    document.getElementById("world-gate")?.scrollIntoView({ behavior: "smooth" });
+                  },
+                }
+              : undefined
+          }
+        />
+      )}
 
       <Card className="grid gap-6 sm:grid-cols-3">
         <div>
@@ -164,7 +182,11 @@ export default function BuyPage({ params }: { params: Promise<{ hash: string }> 
         </Card>
       )}
 
-      {listing && buyer && isVerifiedMarket(listing) && <WorldGate buyer={buyer} onEligible={onEligible} />}
+      {listing && buyer && isVerifiedMarket(listing) && (
+        <div id="world-gate" className="scroll-mt-24">
+          <WorldGate buyer={buyer} onEligible={onEligible} />
+        </div>
+      )}
 
       <Card>
         <h2 className="font-semibold">Receive into</h2>

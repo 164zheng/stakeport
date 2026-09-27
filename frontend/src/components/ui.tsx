@@ -1,6 +1,6 @@
 "use client";
 
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useEffect, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`rounded-2xl border border-line bg-panel p-5 ${className}`}>{children}</div>;
@@ -78,4 +78,53 @@ export function Mono({ children }: { children: ReactNode }) {
 export function ErrorBox({ error }: { error?: string }) {
   if (!error) return null;
   return <div className="rounded-xl border border-bad/40 bg-bad/10 px-4 py-3 text-sm text-bad">{error}</div>;
+}
+
+/** Modal error dialog for rejected transactions: a clear title, what happened, and the next step. */
+export function ErrorDialog({
+  title,
+  body,
+  detail,
+  action,
+  onClose,
+}: {
+  title: string;
+  body: string;
+  detail?: string;
+  action?: { label: string; onClick: () => void };
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4" onClick={onClose}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="error-dialog-title"
+        className="w-full max-w-md rounded-2xl border border-bad/50 bg-panel p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-bad/15 font-bold text-bad">!</span>
+          <div className="space-y-2">
+            <h2 id="error-dialog-title" className="font-semibold text-fg">
+              {title}
+            </h2>
+            <p className="text-sm text-muted">{body}</p>
+            {detail && <p className="break-all font-mono text-xs text-bad">{detail}</p>}
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+          {action && <Button onClick={action.onClick}>{action.label}</Button>}
+        </div>
+      </div>
+    </div>
+  );
 }

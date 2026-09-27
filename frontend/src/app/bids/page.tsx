@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { parseEther } from "viem";
-import { Badge, Button, Card, ErrorBox, Mono } from "@/components/ui";
+import { Badge, Button, Card, ErrorBox, ErrorDialog, Mono } from "@/components/ui";
+import { explainError, type Explained } from "@/lib/errors";
 import { api, validatorsOf, type ValidatorInfo } from "@/lib/api";
 import { createBid, dockBid, listBids, matchBid, matchQuote, type BidInfo } from "@/lib/aqua";
 import { testClient } from "@/lib/chain";
@@ -45,6 +46,7 @@ export default function BidsPage() {
   const [busy, setBusy] = useState<string>();
   const [steps, setSteps] = useState<string[]>([]);
   const [error, setError] = useState<string>();
+  const [dialog, setDialog] = useState<Explained>();
 
   const refresh = useCallback(async () => {
     const [d, bs, ls] = await Promise.all([getDeployment(), listBids(), listings()]);
@@ -87,7 +89,9 @@ export default function BidsPage() {
       await fn();
       await refresh();
     } catch (e) {
-      setError(errorMessage(e));
+      const msg = errorMessage(e);
+      setError(msg);
+      setDialog(explainError(msg) ?? { title: "Transaction failed", body: "The transaction was not sent: it would revert.", detail: msg });
     } finally {
       setBusy(undefined);
     }
@@ -133,6 +137,7 @@ export default function BidsPage() {
         </p>
       </div>
       <ErrorBox error={error} />
+      {dialog && <ErrorDialog {...dialog} onClose={() => setDialog(undefined)} />}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
         <Card>
