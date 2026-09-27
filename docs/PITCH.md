@@ -164,3 +164,77 @@ layer."
   capped at 2 days, while acceptance stays provable for at least ~55 hours, so it can't expire while the proof is
   unavailable."
 - *Is it audited?* "No, it's hackathon code, with 136 Foundry tests including mainnet-fork and real-data tests."
+
+## Q&A bank (any judge)
+
+### Product and economics
+- *Who is the buyer?* "An operator already running a compounding (0x02) validator who wants more stake. A top-up
+  deposit waits in the same entry queue as a new validator, so buying active stake is the faster way to grow."
+- *Who is the seller?* "Anyone who wants out: exiting takes the exit queue plus the withdrawability delay and
+  forfeits the entry-queue value their stake has. Selling captures that value as a premium."
+- *Only +0.18%? Why would anyone bother?* "On 32 ETH that's small, but the premium scales with the queue: 29 days
+  today, over 40 at the 2025 peaks, and a consolidation can carry up to 2048 ETH. The fair value is the buyer's
+  break-even, so sellers can ask anything up to it."
+- *What if the entry queue is empty?* "Then the premium is zero and StakePort is simply an exit route that skips
+  the exit queue for the seller. The formula floors the gain at zero."
+- *Why not just use an LST?* "An LST is a token with its own smart-contract, peg and fee risks. Here the buyer ends
+  up with native stake in their own validator, and no protocol sits between them and the beacon chain."
+- *Who earns the rewards between the fill and delivery?* "The seller's validator keeps earning until the
+  consolidation is processed; only the effective balance moves, and any excess is swept to the seller. The fair
+  value already prices in the delivery wait."
+- *Business model?* "None in the hackathon build: no fee. A protocol fee on the escrowed payment would be one line."
+- *How is this different from OTC validator sales?* "OTC today means transferring validator keys or trusting an
+  intermediary. Here keys never change hands and payment is released only on a consensus-layer proof."
+
+### Protocol mechanics
+- *Why is a proof needed at all?* "The EIP-7251 predeploy accepts any request and charges the fee; whether the
+  consensus layer accepted it and moved the stake is only visible in the beacon state, and the only trustless way
+  to read that from the EVM is a Merkle proof against the EIP-4788 root."
+- *How long does delivery take?* "At least ~27 hours (a 256-epoch withdrawability delay after the exit epoch),
+  plus the consolidation churn queue: about 2.8 days on mainnet today."
+- *What if nobody relays checkpoint 1?* "Anyone can, and the relayer does it automatically. The accept window is
+  capped at 2 days, and acceptance stays provable for at least ~55 hours, so the window never closes while the
+  proof is unavailable."
+- *How much gas?* "A fill is about 570k gas including both validator proofs and the consolidation request; each
+  checkpoint is one state-root proof plus one or two branches."
+- *Which sources can be sold?* "Active, non-exiting, not slashed, 0x01 or 0x02 credentials pointing to the
+  seller's address, and active for at least 256 epochs (the protocol's own rule for consolidation sources)."
+- *What about a 0x02 source with pending partial withdrawals?* "The consensus layer ignores the request, the
+  source never starts exiting, and the buyer is refunded with `proveNotAccepted`."
+- *How many consolidations fit per block?* "The predeploy dequeues two per block and prices extra requests
+  exponentially, which is also what bounds the queue-delay attack."
+- *Does it work after the next fork?* "The generalized indices are for the Fulu BeaconState layout and are checked
+  against lodestar in tests. A fork that changes the layout means new constants, like every beacon-proof protocol."
+
+### Security
+- *Can the seller take the money without delivering?* "No. Payment needs checkpoint 1, which proves the queue
+  holds exactly (source, target), and then a delivery proof. Once queued, the source is exiting and can't be
+  redirected or withdrawn."
+- *Can the buyer get the stake and a refund?* "That was our biggest review finding. A buyer could queue junk
+  EIP-7251 requests ahead of the fill and prove 'not accepted' before its request was dequeued. The fix: that
+  refund needs a state at least 6 hours after the fill. Queueing 1,800 blocks of requests would cost about e^211 wei
+  each."
+- *Can the seller sell the same validator twice?* "No, a source with an open trade can't be filled again until it
+  settles or fails."
+- *What if the seller's validator is slashed?* "Before processing, the consolidation is skipped and `proveFailed`
+  refunds the buyer. After processing, the source can no longer be slashed, because the withdrawable epoch has
+  passed."
+- *Could the seller slash themselves on purpose?* "Only to lose their own stake: the buyer is refunded in full."
+- *What if the proof data is wrong or the beacon node lies?* "Nothing is trusted: every branch must hash to the
+  EIP-4788 root. A lying node can only make a proof fail."
+- *What about missed slots?* "The header slot is bound inside the state-root proof, so epochs are exact, not
+  derived from timestamps."
+- *Is it audited?* "No. It's hackathon code with 136 Foundry tests, including mainnet-fork tests on real beacon
+  data. The threat model is in docs/QA.md."
+
+### UX and deployment
+- *Why does the seller paste a private key?* "Only on testnet. Wallets block arbitrary EIP-7702 delegations today.
+  For production: a Safe module for institutional sellers, or a wallet delegation framework (ERC-7710) with a
+  caveat that checks the escrow; short term, a signed authorization from Foundry or a Ledger instead of the key."
+- *Is it live?* "The contracts are on Hoodi and the frontend is at stakeport.vercel.app. A full trade needs
+  your own Hoodi validators, so the complete flow is shown on a mainnet fork, where checkpoint 1 uses real mainnet
+  beacon data."
+- *What's simulated?* "On the fork, only the delivery state (checkpoint 2), because it happens days later. On
+  Hoodi we proved both checks on a live third-party consolidation, not one traded through StakePort."
+- *What would it take to go to mainnet?* "An audit, a production signing path for the seller (Safe module or
+  ERC-7710), a monitored relayer, and Identity Check instead of the document credential for the Verified Market."
