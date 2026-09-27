@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@chainsafe/persistent-merkle-tree':
+        specifier: ^1.3.1
+        version: 1.3.1
       '@worldcoin/idkit':
         specifier: 4.3.0
         version: 4.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -127,6 +130,52 @@ packages:
   '@babel/types@7.29.8':
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
+
+  '@chainsafe/as-sha256@1.2.5':
+    resolution: {integrity: sha512-8LzmWxBC/2O5BgbP+aRom/FaDJMrM04VZMlVIivYTc6yNQKYrONmIv27m3q/1VBgxrfrNNqmibitb2hE2tQzIw==}
+
+  '@chainsafe/hashtree-darwin-arm64@1.0.2':
+    resolution: {integrity: sha512-yIIwn9SUR5ZTl2vN1QqRtDFL/w2xYW4o68A1k8UexMbieGAnE7Ab7NvtCZRHRe8x0eONO46F/bWn5bxxyYlFXw==}
+    engines: {node: '>= 18'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@chainsafe/hashtree-linux-arm64-gnu@1.0.2':
+    resolution: {integrity: sha512-MDz1xBRTRHw2eezGqx1Ff8NoeUUQP3bhbeeVG8ZZTkFYqvRc8O65OQOTtgO+fFGvqnDjVBSRHmiTXU5eNeH/mQ==}
+    engines: {node: '>= 18'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@chainsafe/hashtree-linux-arm64-musl@1.0.2':
+    resolution: {integrity: sha512-BUy+/9brJwAFAtraro4y/1F+aP/8j/7HrnYdde8PTu7jHWAClI9xZygadaJbk0GoWxyCOUAJKUs8KHVnYxJDeg==}
+    engines: {node: '>= 18'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@chainsafe/hashtree-linux-x64-gnu@1.0.2':
+    resolution: {integrity: sha512-bFy9ffFG77SivmeOjOlZmOCrxzQ/WqUESy0I+dW6IX7wquTXHldJKWvohs9+FEn3TSXgeigFmEATz5tfxBfIZw==}
+    engines: {node: '>= 18'}
+    cpu: [x64]
+    os: [linux]
+
+  '@chainsafe/hashtree-linux-x64-musl@1.0.2':
+    resolution: {integrity: sha512-mbJB3C0RjwpqOMPZIUQm3IBH6d3sYiKDXMU6ORt5nuk7Ix2I80xxffAciDO1d7kKNnW6HStOj5s/rGhIDxK1ug==}
+    engines: {node: '>= 18'}
+    cpu: [x64]
+    os: [linux]
+
+  '@chainsafe/hashtree-win32-x64-msvc@1.0.2':
+    resolution: {integrity: sha512-wXFhGqaydgadefQbjSTGqZY1R1MBhnJj+gbJhULNRUXco5pHsXfOk3QhCDAefp1PPW+wQwfT4clEnQCqJIf58w==}
+    engines: {node: '>= 18'}
+    cpu: [x64]
+    os: [win32]
+
+  '@chainsafe/hashtree@1.0.2':
+    resolution: {integrity: sha512-OaWjsZ6S/GaT2RvaqdpsF5Mux8qQOE2KbitX2yHmQJZNUZkdh7C3N4PA5LsvewqX+z8Nkv8mr1uSe0LSrHGiQw==}
+    engines: {node: '>= 18'}
+
+  '@chainsafe/persistent-merkle-tree@1.3.1':
+    resolution: {integrity: sha512-f8E1ftNhHK9zUEgb+Tdcx8TM57qeO4u9RU1kKDUDgCQyiMXrC+3rjAPAvum2HN7Du81myG7nz1WpIMZAPVWLTg==}
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -2265,6 +2314,41 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
+
+  '@chainsafe/as-sha256@1.2.5': {}
+
+  '@chainsafe/hashtree-darwin-arm64@1.0.2':
+    optional: true
+
+  '@chainsafe/hashtree-linux-arm64-gnu@1.0.2':
+    optional: true
+
+  '@chainsafe/hashtree-linux-arm64-musl@1.0.2':
+    optional: true
+
+  '@chainsafe/hashtree-linux-x64-gnu@1.0.2':
+    optional: true
+
+  '@chainsafe/hashtree-linux-x64-musl@1.0.2':
+    optional: true
+
+  '@chainsafe/hashtree-win32-x64-msvc@1.0.2':
+    optional: true
+
+  '@chainsafe/hashtree@1.0.2':
+    optionalDependencies:
+      '@chainsafe/hashtree-darwin-arm64': 1.0.2
+      '@chainsafe/hashtree-linux-arm64-gnu': 1.0.2
+      '@chainsafe/hashtree-linux-arm64-musl': 1.0.2
+      '@chainsafe/hashtree-linux-x64-gnu': 1.0.2
+      '@chainsafe/hashtree-linux-x64-musl': 1.0.2
+      '@chainsafe/hashtree-win32-x64-msvc': 1.0.2
+
+  '@chainsafe/persistent-merkle-tree@1.3.1':
+    dependencies:
+      '@chainsafe/as-sha256': 1.2.5
+      '@chainsafe/hashtree': 1.0.2
+      '@noble/hashes': 1.8.0
 
   '@emnapi/core@1.10.0':
     dependencies:

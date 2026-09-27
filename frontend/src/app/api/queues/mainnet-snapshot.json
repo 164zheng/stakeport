@@ -1,0 +1,27 @@
+{
+  "epoch": 478028,
+  "totalActiveEth": 43531841,
+  "churnEthPerEpoch": {
+    "activationExit": 256,
+    "consolidation": 408
+  },
+  "entry": {
+    "pendingEth": 1673353.994850701,
+    "pendingCount": 22326,
+    "waitEpochs": 6545,
+    "waitDays": 29.08888888888889
+  },
+  "exit": {
+    "waitEpochs": 5,
+    "waitDays": 0.022222222222222223,
+    "withdrawableDays": 1.16
+  },
+  "consolidation": {
+    "pendingCount": 8117,
+    "waitEpochs": 383,
+    "waitDays": 1.7022222222222223,
+    "deliveryDays": 2.84
+  },
+  "baseSlot": 15296896,
+  "source": "Ethereum mainnet beacon state (snapshot)"
+}

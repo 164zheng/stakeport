@@ -45,7 +45,7 @@ export function QueuePanel({ amountEth = 32 }: { amountEth?: number }) {
       <div className="space-y-4">
         <div className="flex items-baseline justify-between">
           <h2 className="font-semibold">Why native stake trades at a premium right now</h2>
-          <span className="text-xs text-muted">mainnet beacon state · slot {q.baseSlot}</span>
+          <span className="text-xs text-muted">{(q as { source?: string }).source ?? "mainnet beacon state"} · slot {q.baseSlot}</span>
         </div>
         <Bar
           label="New deposit → active (entry queue)"
